@@ -1,7 +1,7 @@
 #include <Arduino.h>
 
 // --- Pin Definitions ---
-const int pedalPin = 34;      // ADC input connected to Tip of TRS
+const int pedalPin = 32;      // ADC input connected to Tip of TRS
 const int adcMax = 4095;      // 12-bit ADC on ESP32
 
 // Optional: calibration values (can be loaded from EEPROM later)
@@ -11,6 +11,7 @@ int pedalMax = adcMax;
 void setup() {
     Serial.begin(115200);
     analogReadResolution(12);  // ESP32 default: 12-bit ADC (0-4095)
+    analogSetAttenuation(ADC_11db);  // Set ADC attenuation to 11dB for full-scale voltage
     Serial.println("ESP32 Expression Pedal Test");
 }
 
