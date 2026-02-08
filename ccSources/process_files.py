@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 
 parent_dir = Path(__file__).parent
-HEADER_FILENAME = parent_dir / "../include/ccDefinitions.h"
+HEADER_FILENAME = parent_dir / "../include/cc_definitions.h"
 FOLDER_PATH = parent_dir / "." 
 
 
