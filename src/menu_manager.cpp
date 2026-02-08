@@ -6,6 +6,11 @@
 #include <Arduino.h>
 #include <cstring>
 #include "color_utils.h"
+#include "eeprom_storage.h"
+#include <cmath>
+
+// Forward declaration: curve preview helper used by `renderCurveMenu`
+static void drawCurvePreview(Adafruit_ST7796S* tft, CurveType ct);
 
 
 #define TOP_MENU_MARGIN 50
@@ -21,12 +26,17 @@ MenuManager::MenuManager()
     _monitorTriangleDrawn = false;
     _monitorArrowTopY = -1;
     _monitorArrowCX = -1;
+    _currentCurve = CURVE_LINEAR;
 }
 
 void MenuManager::begin(Adafruit_ST7796S* tft) {
     _tft = tft;
     if (!_tft) return;
     _initialized = true;
+    // Load persisted curve selection (defaults to linear if not present)
+    uint8_t c = eeprom_getCurve();
+    if (c >= CURVE_COUNT) c = CURVE_LINEAR;
+    _currentCurve = (CurveType)c;
 }
 
 void MenuManager::render() {
@@ -164,7 +174,13 @@ void MenuManager::onMain_Btn() {
     // Render the selected menu (each submenu will show its title)
     render();
 }
+void MenuManager::onMain_Aux() {
+    // Jump directly to Monitor menu and render it
+    _currentMenu = MENU_MONITOR;
+    render();
 
+}
+    
 // --- Submenu renders & handlers (minimal: just a title)
 void MenuManager::renderMonitorMenu() {
     if (!_initialized || !_tft) return;
@@ -298,6 +314,81 @@ void MenuManager::renderCurveMenu() {
     if (!_initialized || !_tft) return;
     _tft->fillScreen(COLOR_BLACK);
     drawMenuTitle("CURVE");
+    // draw preview of currently selected curve
+    drawCurvePreview(_tft, _currentCurve);
+}
+
+// Helper: draw a preview of the given curve type into the screen center area
+static void drawCurvePreview(Adafruit_ST7796S* tft, CurveType ct) {
+    if (!tft) return;
+    int16_t w = tft->width();
+    int16_t h = tft->height();
+    int16_t margin = 20;
+    int16_t gx = margin;
+    int16_t gy = margin + 20;
+    int16_t gw = w - margin * 2;
+    int16_t gh = h - (margin * 2) - 40;
+    // draw axes
+    // tft->drawRect(gx, gy, gw, gh, COLOR_WHITE);
+    // sample curve across width
+    const int samples = gw;
+    int lastX = gx;
+    int lastY = gy + gh - 1;
+    for (int i = 0; i < samples; ++i) {
+        float x = (float)i / (float)(samples - 1);
+        float y = 0.0f;
+        switch (ct) {
+            case CURVE_LINEAR:
+                y = x;
+                break;
+            case CURVE_LOGARITHMIC:
+                y = log10f(1.0f + 9.0f * x); // maps 0..1 -> 0..1 (approx)
+                break;
+            case CURVE_EXPONENTIAL:
+                y = (expf(3.0f * x) - 1.0f) / (expf(3.0f) - 1.0f);
+                break;
+            case CURVE_SIGMOIDAL: {
+                float k = 12.0f; // steepness
+                y = 1.0f / (1.0f + expf(-k * (x - 0.5f)));
+                break;
+            }
+            case CURVE_TANGENT: {
+                // Use tangent mapping normalized to 0..1 across the sampling range.
+                float t = tanf(3.0f * (x - 0.5f));
+                // Normalize using expected min/max at endpoints (-1.5, +1.5 multiplier)
+                float tmin = tanf(-1.5f);
+                float tmax = tanf(1.5f);
+                if (tmax - tmin == 0.0f) y = 0.5f; else y = (t - tmin) / (tmax - tmin);
+                // Clamp to [0,1]
+                if (y < 0.0f) y = 0.0f;
+                if (y > 1.0f) y = 1.0f;
+                break;
+            }
+            default:
+                y = x;
+        }
+        int px = gx + i;
+        int py = gy + gh - 1 - (int)(y * (gh - 2));
+        // draw small pixel or line from last to current for continuity
+        tft->drawLine(lastX, lastY, px, py, COLOR_MAGENTA);
+        lastX = px;
+        lastY = py;
+    }
+    // label current curve name in top-left of the graph
+    const char* name = "";
+    switch (ct) {
+        case CURVE_LINEAR: name = "Linear"; break;
+        case CURVE_LOGARITHMIC: name = "Logarithmic"; break;
+        case CURVE_EXPONENTIAL: name = "Exponential"; break;
+        case CURVE_SIGMOIDAL: name = "Sigmoidal"; break;
+        case CURVE_TANGENT: name = "Tangent"; break;
+        default: name = "Unknown"; break;
+    }
+    tft->setTextSize(2);
+    tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
+    tft->setCursor(gx + 6, gy + 6);
+    tft->print(name);
+    tft->setTextSize(1);
 }
 
 // Submenu auxiliary/button handlers: return to main menu
@@ -321,18 +412,25 @@ void MenuManager::onCalibration_CCW() {}
 void MenuManager::onCalibration_Btn() {}
 void MenuManager::onCalibration_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
 
-void MenuManager::onCurve_CW() {}
-void MenuManager::onCurve_CCW() {}
+
+// Curve Menu
+void MenuManager::onCurve_CW() {
+    // next curve
+    int c = (int)_currentCurve;
+    c = (c + 1) % CURVE_COUNT;
+    _currentCurve = (CurveType)c;
+    eeprom_saveCurve((uint8_t)_currentCurve);
+    renderCurveMenu();
+}
+void MenuManager::onCurve_CCW() {
+    int c = (int)_currentCurve;
+    c = (c - 1 + CURVE_COUNT) % CURVE_COUNT;
+    _currentCurve = (CurveType)c;
+    eeprom_saveCurve((uint8_t)_currentCurve);
+    renderCurveMenu();
+}
 void MenuManager::onCurve_Btn() {}
 void MenuManager::onCurve_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
-void MenuManager::onMain_Aux() {
-    // Jump directly to Monitor menu and render it
-    _currentMenu = MENU_MONITOR;
-    render();
-
-}
-
-
 
 
 

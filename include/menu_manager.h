@@ -16,6 +16,16 @@ enum MenuState : uint8_t {
     MENU_COUNT
 };
 
+// Curve types available for mapping
+enum CurveType : uint8_t {
+    CURVE_LINEAR = 0,
+    CURVE_LOGARITHMIC,
+    CURVE_EXPONENTIAL,
+    CURVE_SIGMOIDAL,
+    CURVE_TANGENT,
+    CURVE_COUNT
+};
+
 // Input events exposed to the menu system
 enum InputEvent : uint8_t {
     EncoderCW = 0,
@@ -83,6 +93,8 @@ private:
     bool _monitorTriangleDrawn;
     int _monitorArrowTopY;
     int _monitorArrowCX;
+    // Active curve selection (persisted in EEPROM)
+    CurveType _currentCurve;
 };
 
 // Table-driven handlers struct

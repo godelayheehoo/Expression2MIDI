@@ -10,5 +10,9 @@ bool eeprom_init();
 uint8_t eeprom_getCC();
 int8_t eeprom_getChannel();
 
+// Curve storage: stores an index representing the chosen curve
+uint8_t eeprom_getCurve();
+void eeprom_saveCurve(uint8_t curve);
+
 // Save values to storage
 void eeprom_save(uint8_t cc, int8_t channel);
