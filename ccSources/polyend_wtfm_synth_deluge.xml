@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<midiDevice>
+<ccLabels
+    20="FM Amount"
+    21="Feedback 1"
+    22="Osc Shape 1"
+    23="Ratio 1"
+    24="Ratio 2"
+    25="Finetune 2"
+    26="Finetune 1"
+    27="Osc Shape 2"
+    28="Feedback 2"
+    29="FB 2->1"
+    46="Aux Env Attack"
+    47="Aux Env Decay"
+    48="Aux Env Sustain"
+    49="Aux Env Release"
+    71="Filter Resonance"
+    74="Filter Cutoff"
+    77="Filter Env Amount"
+    72="Amp Env Decay"
+    73="Amp Env Release"
+    75="Amp Env Attack"
+    76="Amp Env Sustain"
+    80="Filter Env Attack"
+    81="Filter Env Decay"
+    82="Filter Env Sustain"
+    83="Filter Env Release"
+    />
+</midiDevice>

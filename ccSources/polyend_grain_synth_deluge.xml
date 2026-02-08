@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<midiDevice>
+<ccLabels
+    20="Grain Position"
+    21="Pos Spread"
+    22="Time Spread"
+    23="Density"
+    24="Grain Size"
+    25="Grain Shape"
+    26="Detune Spread"
+    27="Pan Spread"
+    30="Osc Tune"
+    31="Osc Finetune"
+    85="Grain Space"
+    86="Direction"
+    87="Size Spread"
+    71="Filter Resonance"
+    74="Filter Cutoff"
+    77="Filter Env Amount"
+    72="Amp Env Decay"
+    73="Amp Env Release"
+    75="Amp Env Attack"
+    76="Amp Env Sustain"
+    80="Filter Env Attack"
+    81="Filter Env Decay"
+    82="Filter Env Sustain"
+    83="Filter Env Release"
+    46="Aux Env Attack"
+    47="Aux Env Decay"
+    48="Aux Env Sustain"
+    49="Aux Env Release"
+    />
+</midiDevice>

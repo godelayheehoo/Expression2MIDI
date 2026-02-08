@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<midiDevice>
+<ccLabels
+    20="Osc Timbre"
+    21="Osc Noise"
+    22="Osc Fatness"
+    23="Osc Brightness"
+    24="Fatness LFO"
+    54="LFO Frequency"
+    71="Filter Resonance"
+    72="Amp Env Decay"
+    73="Amp Env Release"
+    74="Filter Cutoff"
+    75="Amp Env Attack"
+    76="Amp Env Sustain"
+    77="Filter Env Amount"
+    78="Filter LFO"
+    80="Filter Env Attack"
+    81="Filter Env Decay"
+    82="Filter Env Sustain"
+    83="Filter Env Release"
+    />
+</midiDevice>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<midiDevice>
+<ccLabels
+    20="Osc Mix"
+    21="Osc Warp 1"
+    22="Osc Position 1"
+    25="Osc Tune 1"
+    26="Osc Finetune"
+    27="Osc Position 2"
+    28="Osc Warp 2"
+    29="Osc Noise"
+    30="Osc Tune 2"
+    31="Osc Detune"
+    46="Aux Env Attack"
+    47="Aux Env Decay"
+    48="Aux Env Sustain"
+    49="Aux Env Release"
+    71="Filter Resonance"
+    74="Filter Cutoff"
+    77="Filter Env Amount"
+    72="Amp Env Decay"
+    73="Amp Env Release"
+    75="Amp Env Attack"
+    76="Amp Env Sustain"
+    80="Filter Env Attack"
+    81="Filter Env Decay"
+    82="Filter Env Sustain"
+    83="Filter Env Release"
+    />
+</midiDevice>
