@@ -8,6 +8,7 @@ static const uint32_t EEPROM_MAGIC = 0x45524D32; // 'ERM2'
 static const uint8_t DEFAULT_CC = 74;
 static const int8_t DEFAULT_CHANNEL = 14;
 static const uint8_t DEFAULT_CURVE = 0; // 0 == linear
+static const uint8_t DEFAULT_INVERT = 0; // 0 == normal
 
 bool eeprom_init() {
     prefs.begin(PREF_NS, false);
@@ -57,6 +58,20 @@ void eeprom_save(uint8_t cc, int8_t channel) {
 void eeprom_saveCurve(uint8_t curve) {
     prefs.begin(PREF_NS, false);
     prefs.putUChar("curve", (uint8_t)curve);
+    prefs.putUInt("magic", EEPROM_MAGIC);
+    prefs.end();
+}
+
+uint8_t eeprom_getInvert() {
+    prefs.begin(PREF_NS, true);
+    uint8_t v = prefs.getUChar("invert", DEFAULT_INVERT);
+    prefs.end();
+    return v;
+}
+
+void eeprom_saveInvert(uint8_t inverted) {
+    prefs.begin(PREF_NS, false);
+    prefs.putUChar("invert", (uint8_t)inverted);
     prefs.putUInt("magic", EEPROM_MAGIC);
     prefs.end();
 }

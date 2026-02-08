@@ -31,6 +31,8 @@ MenuManager::MenuManager()
     _monitorArrowCX = -1;
     _currentCurve = CURVE_LINEAR;
     _stagedCurve = CURVE_LINEAR;
+    _inverted = false;
+    _invertSelectedIdx = 0;
 }
 
 void MenuManager::begin(Adafruit_ST7796S* tft) {
@@ -42,6 +44,10 @@ void MenuManager::begin(Adafruit_ST7796S* tft) {
     if (c >= CURVE_COUNT) c = CURVE_LINEAR;
     _currentCurve = (CurveType)c;
     _stagedCurve = _currentCurve;
+    // Load persisted invert flag
+    uint8_t inv = eeprom_getInvert();
+    _inverted = (inv != 0);
+    _invertSelectedIdx = _inverted ? 1 : 0;
 }
 
 void MenuManager::render() {
@@ -61,6 +67,9 @@ void MenuManager::render() {
             break;
         case MENU_CALIBRATION:
             renderCalibrationMenu();
+            break;
+        case MENU_INVERT:
+            renderInvertMenu();
             break;
         case MENU_CURVE:
             renderCurveMenu();
@@ -126,6 +135,7 @@ void MenuManager::renderMainMenu() {
         "MIDI Channel",
         "MIDI CC Number",
         "Calibration",
+        "Invert",
         "Curve"
     };
     const int optionCount = sizeof(options) / sizeof(options[0]);
@@ -157,12 +167,12 @@ void MenuManager::renderMainMenu() {
 
 void MenuManager::onMain_CW() {
     // move selection down
-    const int count = 5; // number of main options
+    const int count = 6; // number of main options
     _mainSelectedIdx = (_mainSelectedIdx + 1) % count;
     renderMainMenu();
 }
 void MenuManager::onMain_CCW() {
-    const int count = 5;
+    const int count = 6;
     _mainSelectedIdx = (_mainSelectedIdx - 1 + count) % count;
     renderMainMenu();
 }
@@ -173,7 +183,8 @@ void MenuManager::onMain_Btn() {
         case 1: _currentMenu = MENU_MIDI_CHANNEL; break;
         case 2: _currentMenu = MENU_MIDI_CC_NUMBER; break;
         case 3: _currentMenu = MENU_CALIBRATION; break;
-        case 4: _currentMenu = MENU_CURVE; _stagedCurve = _currentCurve; break;
+        case 4: _currentMenu = MENU_INVERT; break;
+        case 5: _currentMenu = MENU_CURVE; _stagedCurve = _currentCurve; break;
         default: _currentMenu = MENU_MAIN; break;
     }
     // Render the selected menu (each submenu will show its title)
@@ -333,6 +344,45 @@ void MenuManager::renderCalibrationMenu() {
     _tft->fillScreen(COLOR_BLACK);
     drawMenuTitle("CALIBRATION");
 }
+void MenuManager::renderInvertMenu() {
+    if (!_initialized || !_tft) return;
+    _tft->fillScreen(COLOR_BLACK);
+    drawMenuTitle("INVERT");
+
+    const char* options[] = { "Normal", "Inverted" };
+    const int optionCount = sizeof(options) / sizeof(options[0]);
+
+    _tft->setTextColor(COLOR_WHITE);
+    _tft->setTextSize(2);
+
+    int16_t x = 8;
+    int16_t y = TOP_MENU_MARGIN;
+    int16_t lineH = 8 * 2 + 6;
+    int16_t w = _tft->width();
+    for (int i = 0; i < optionCount; ++i) {
+        int16_t oy = y + i * lineH;
+        if (i == _invertSelectedIdx) {
+            int16_t rectW = w - x - 8;
+            _tft->fillRect(x - 4, oy - 2, rectW, lineH - 2, COLOR_WHITE);
+            _tft->setTextColor(COLOR_BLACK);
+        } else {
+            _tft->setTextColor(COLOR_WHITE);
+        }
+        _tft->setCursor(x, oy);
+        _tft->print(options[i]);
+        // append [active] if this option matches the active persisted state
+        if ((i == 0 && !_inverted) || (i == 1 && _inverted)) {
+            // place tag to the right of the text
+            int16_t tagX = x + 140; // rough offset to avoid measuring widths
+            _tft->setTextSize(1);
+            _tft->setTextColor(COLOR_CYAN, COLOR_BLACK);
+            _tft->setCursor(tagX, oy + 6);
+            _tft->print("[active]");
+            _tft->setTextSize(2);
+            _tft->setTextColor(COLOR_WHITE);
+        }
+    }
+}
 void MenuManager::renderCurveMenu() {
     if (!_initialized || !_tft) return;
     _tft->fillScreen(COLOR_BLACK);
@@ -460,6 +510,27 @@ void MenuManager::onCalibration_Aux() { _currentMenu = MENU_MAIN; renderMainMenu
 
 
 //////////// Curve Menu Controls
+//////////// Invert Menu Controls
+void MenuManager::onInvert_CW() {
+    const int count = 2;
+    _invertSelectedIdx = (_invertSelectedIdx + 1) % count;
+    renderInvertMenu();
+}
+void MenuManager::onInvert_CCW() {
+    const int count = 2;
+    _invertSelectedIdx = (_invertSelectedIdx - 1 + count) % count;
+    renderInvertMenu();
+}
+void MenuManager::onInvert_Btn() {
+    // commit staged selection
+    _inverted = (_invertSelectedIdx == 1);
+    eeprom_saveInvert((uint8_t)(_inverted ? 1 : 0));
+    _currentMenu = MENU_MAIN;
+    renderMainMenu();
+}
+void MenuManager::onInvert_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
+
+//////////// Curve Menu Controls
 void MenuManager::onCurve_CW() {
     // advance staged selection (preview only)
     int c = (int)_stagedCurve;
@@ -520,7 +591,12 @@ int MenuManager::mapCurve(int linear) {
 }
 
 int MenuManager::applyCurve(int linear) {
-    return mapCurve(linear);
+    int m = mapCurve(linear);
+    if (_inverted) {
+        // invert within 0..1023
+        m = 1023 - m;
+    }
+    return m;
 }
 void MenuManager::onCurve_Btn() {
     // Commit staged selection as active, persist it, and return to main menu
@@ -546,6 +622,8 @@ const MenuHandlers menuHandlersTable[MENU_COUNT] = {
     { &MenuManager::onMidiCC_CW, &MenuManager::onMidiCC_CCW, &MenuManager::onMidiCC_Btn, &MenuManager::onMidiCC_Aux },
     // MENU_CALIBRATION
     { &MenuManager::onCalibration_CW, &MenuManager::onCalibration_CCW, &MenuManager::onCalibration_Btn, &MenuManager::onCalibration_Aux },
+    // MENU_INVERT
+    { &MenuManager::onInvert_CW, &MenuManager::onInvert_CCW, &MenuManager::onInvert_Btn, &MenuManager::onInvert_Aux },
     // MENU_CURVE
     { &MenuManager::onCurve_CW, &MenuManager::onCurve_CCW, &MenuManager::onCurve_Btn, &MenuManager::onCurve_Aux }
 };

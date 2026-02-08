@@ -12,6 +12,7 @@ enum MenuState : uint8_t {
     MENU_MIDI_CHANNEL,
     MENU_MIDI_CC_NUMBER,
     MENU_CALIBRATION,
+    MENU_INVERT,
     MENU_CURVE,
     MENU_COUNT
 };
@@ -44,6 +45,7 @@ public:
     void renderMidiChannelMenu();
     void renderMidiCCMenu();
     void renderCalibrationMenu();
+    void renderInvertMenu();
     void renderCurveMenu();
     void render();
     void handleInput(InputEvent ev);
@@ -82,6 +84,11 @@ public:
     void onCurve_CCW();
     void onCurve_Btn();
     void onCurve_Aux();
+    // Invert menu handlers
+    void onInvert_CW();
+    void onInvert_CCW();
+    void onInvert_Btn();
+    void onInvert_Aux();
 
 private:
     // Apply currently selected curve to a linear 0..1023 input
@@ -101,6 +108,9 @@ private:
     CurveType _currentCurve;
     // Staged curve used while previewing in the Curve menu (committed on Btn)
     CurveType _stagedCurve;
+    // Invert state (persisted) and staged selection index for the Invert menu
+    bool _inverted;
+    int _invertSelectedIdx;
 };
 
 // Table-driven handlers struct

@@ -14,5 +14,9 @@ int8_t eeprom_getChannel();
 uint8_t eeprom_getCurve();
 void eeprom_saveCurve(uint8_t curve);
 
+// Invert flag storage: 0 == normal, 1 == inverted
+uint8_t eeprom_getInvert();
+void eeprom_saveInvert(uint8_t inverted);
+
 // Save values to storage
 void eeprom_save(uint8_t cc, int8_t channel);
