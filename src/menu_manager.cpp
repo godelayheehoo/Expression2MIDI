@@ -16,6 +16,11 @@ extern const MenuHandlers menuHandlersTable[MENU_COUNT];
 MenuManager::MenuManager()
     : _tft(nullptr), _initialized(false), _currentMenu(MENU_MAIN) {
     _mainSelectedIdx = 0;
+    _lastRaw = -1;
+    _lastNorm = -1;
+    _monitorTriangleDrawn = false;
+    _monitorArrowTopY = -1;
+    _monitorArrowCX = -1;
 }
 
 void MenuManager::begin(Adafruit_ST7796S* tft) {
@@ -165,6 +170,31 @@ void MenuManager::renderMonitorMenu() {
     if (!_initialized || !_tft) return;
     _tft->fillScreen(COLOR_BLACK);
     drawMenuTitle("MONITOR");
+    // Pre-draw the static triangle/arrow at the planned position so updateMonitor
+    // doesn't need to redraw it on every value change.
+    const int valueTextSize = 6;
+    const int rawHeight = 8 * valueTextSize;
+    int16_t w = _tft->width();
+    int16_t h = _tft->height();
+    int16_t rawY = h / 4 - rawHeight / 2; // place input higher up
+    // place output symmetrically: same distance from bottom as input is from top
+    int16_t normY = h - rawHeight - rawY;
+    int16_t arrowCX = w / 2;
+    int16_t arrowSize = 8;
+    int16_t arrowCenterY = (rawY + rawHeight + normY) / 2;
+    int16_t arrowTopY = arrowCenterY - arrowSize;
+    // draw triangle once
+    int16_t ax0 = arrowCX;
+    int16_t ay0 = arrowTopY + arrowSize;
+    int16_t ax1 = arrowCX - arrowSize;
+    int16_t ay1 = arrowTopY;
+    int16_t ax2 = arrowCX + arrowSize;
+    int16_t ay2 = arrowTopY;
+    _tft->fillTriangle(ax0, ay0, ax1, ay1, ax2, ay2, COLOR_WHITE);
+    _monitorTriangleDrawn = true;
+    _monitorArrowTopY = arrowTopY;
+    _monitorArrowCX = arrowCX;
+    // Leave numbers to updateMonitor when values arrive
 }
 
 void MenuManager::updateMonitor(int rawADC, int norm) {
@@ -185,59 +215,57 @@ void MenuManager::updateMonitor(int rawADC, int norm) {
     int16_t h = _tft->height();
 
     // Layout: Big raw (4 digits) centered, down arrow, mapped (norm) centered
-    // Big raw
+    // Big raw (input) - use yellow
     char rawbuf[16];
     snprintf(rawbuf, sizeof(rawbuf), "%4d", rawADC); // fixed width 4
-    _tft->setTextSize(4);
-    _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
-    const int rawCharW = 6 * 4;
+    const int valueTextSize = 6; // larger for 3.5" display
+    _tft->setTextSize(valueTextSize);
+    _tft->setTextColor(COLOR_YELLOW, COLOR_BLACK);
+    const int rawCharW = 6 * valueTextSize;
     const int rawDigits = 4;
     const int rawTextW = rawCharW * rawDigits; // fixed area
+    const int rawHeight = 8 * valueTextSize; // approximate pixel height for font
+    // Use same layout as renderMonitorMenu so the pre-drawn triangle stays centered
     int16_t rawX = (w - rawTextW) / 2;
-    int16_t rawY = h / 2 - 48;
+    int16_t rawY = h / 4 - rawHeight / 2; // place input higher up
+    // place output symmetrically: same distance from bottom as input is from top
+    int16_t normY = h - rawHeight - rawY; // place output lower
     if (rawX < 0) rawX = 0;
     if (rawY < 0) rawY = 0;
-    // Clear area (fixed width) to avoid leftover digits
-    _tft->fillRect(rawX - 6, rawY - 6, rawTextW + 12, 44, COLOR_BLACK);
+    // Clear area (fixed width) to avoid leftover digits (do not touch triangle area)
+    _tft->fillRect(rawX - 6, rawY - 6, rawTextW + 12, rawHeight + 4, COLOR_BLACK);
     _tft->setCursor(rawX, rawY);
     _tft->print(rawbuf);
 
-    // Downwards pointing arrow (triangle)
-    int16_t arrowCX = w / 2;
-    int16_t arrowTopY = rawY + 44; // below raw number
-    int16_t arrowSize = 8;
-    // Clear arrow area
-    _tft->fillRect(arrowCX - arrowSize - 4, arrowTopY - 2, arrowSize * 2 + 8, arrowSize + 8, COLOR_BLACK);
-    // draw triangle pointing down
-    int16_t ax0 = arrowCX;
-    int16_t ay0 = arrowTopY + arrowSize;
-    int16_t ax1 = arrowCX - arrowSize;
-    int16_t ay1 = arrowTopY;
-    int16_t ax2 = arrowCX + arrowSize;
-    int16_t ay2 = arrowTopY;
-    _tft->fillTriangle(ax0, ay0, ax1, ay1, ax2, ay2, COLOR_WHITE);
-
-    // Mapped (normalized) value below arrow, fixed width 4
+    // Mapped (normalized) value below arrow, same font size, use magenta
     char normbuf[16];
     snprintf(normbuf, sizeof(normbuf), "%4d", norm);
-    _tft->setTextSize(3);
-    _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
-    const int normCharW = 6 * 3;
+    _tft->setTextSize(valueTextSize);
+    _tft->setTextColor(COLOR_MAGENTA, COLOR_BLACK);
+    const int normCharW = 6 * valueTextSize;
     const int normDigits = 4;
     const int normTextW = normCharW * normDigits;
+    const int normHeight = rawHeight;
     int16_t normX = (w - normTextW) / 2;
-    int16_t normY = arrowTopY + arrowSize + 6;
+    // Use the same computed normY as layout above so we don't need to recompute arrow
+    // (arrow was pre-drawn in renderMonitorMenu)
+    // recompute arrowTopY for local use
+    int16_t arrowCX = w / 2;
+    int16_t arrowSize = 8;
+    int16_t arrowCenterY = (rawY + rawHeight + normY) / 2;
+    int16_t arrowTopY = arrowCenterY - arrowSize;
     if (normX < 0) normX = 0;
     // Clear area for normalized display
-    _tft->fillRect(normX - 6, normY - 4, normTextW + 12, 32, COLOR_BLACK);
+    _tft->fillRect(normX - 6, normY - 6, normTextW + 12, normHeight + 16, COLOR_BLACK);
     _tft->setCursor(normX, normY);
     _tft->print(normbuf);
 
     // Draw a horizontal progress bar below the mapped value
     int barW = w - 40;
     int barX = 20;
-    int barY = normY + 40;
+    // place bar near bottom of screen
     int barH = 16;
+    int barY = h - barH - 12;
     // background border
     _tft->drawRect(barX, barY, barW, barH, COLOR_WHITE);
     // clear inside first (ensures decreases erase previous fill)

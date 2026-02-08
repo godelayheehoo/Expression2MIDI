@@ -199,7 +199,7 @@ void loop() {
       int norm = map(raw, pedalMin, pedalMax, 0, 1023);
       norm = constrain(norm, 0, 1023);
       // Debug print whenever polled
-      Serial.print("Monitor poll - raw:"); Serial.print(raw); Serial.print(" norm:"); Serial.println(norm);
+    //   Serial.print("Monitor poll - raw:"); Serial.print(raw); Serial.print(" norm:"); Serial.println(norm);
       menu.updateMonitor(raw, norm);
     }
 

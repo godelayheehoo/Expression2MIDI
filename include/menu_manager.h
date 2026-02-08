@@ -79,6 +79,10 @@ private:
     // Monitor cached values
     int _lastRaw;
     int _lastNorm;
+    // Monitor rendering state (avoid redrawing the arrow/triangle repeatedly)
+    bool _monitorTriangleDrawn;
+    int _monitorArrowTopY;
+    int _monitorArrowCX;
 };
 
 // Table-driven handlers struct
