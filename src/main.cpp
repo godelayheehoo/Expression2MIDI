@@ -78,7 +78,7 @@ struct ButtonHelper {
   }
 };
 
-ButtonHelper returnButtonHelper(RETURN_BUTTON_PIN, DEFAULT_BUTTON_DEBOUNCE_MS);
+ButtonHelper auxButtonHelper(AUX_BUTTON_PIN, DEFAULT_BUTTON_DEBOUNCE_MS);
 
 //// ENCODER SETUP
 ESP32Encoder enc;
@@ -107,8 +107,8 @@ void setup() {
     analogSetAttenuation(ADC_11db);  // Set ADC attenuation to 11dB for full-scale voltage
     Serial.println("ESP32 Expression Pedal Test");
     // Configure save button pin
-    pinMode(RETURN_BUTTON_PIN, INPUT_PULLUP);
-    ButtonHelper saveButtonHelper(RETURN_BUTTON_PIN, DEFAULT_BUTTON_DEBOUNCE_MS);
+    pinMode(AUX_BUTTON_PIN, INPUT_PULLUP);
+    ButtonHelper saveButtonHelper(AUX_BUTTON_PIN, DEFAULT_BUTTON_DEBOUNCE_MS);
     ButtonHelper encoderBtnHelper(ENCODER_BTN, DEFAULT_BUTTON_DEBOUNCE_MS);
     // Initialize storage and load settings
     bool existing = eeprom_init();
@@ -168,23 +168,26 @@ void loop() {
     // --- Save button handling (active LOW) ---
     // This will also be what sets MIDI_CHANNEL and MIDI_CC or whatever I called them from "NEW_MIDI_CHANNLEL"
     // and NEW_MIDI_CC, which are what are displayed in the menu as the controls sweep through. 
-    if(returnButtonHelper.isPressed()) {
+    if(auxButtonHelper.isPressed()) {
         Serial.println("Back Button Pressed");
+        menu.handleInput(AuxBtn);
     }
     if(encoderBtnHelper.isPressed()) {
         Serial.println("Encoder button pressed");
-        tftStartupTest();
-        menu.render();
+        menu.handleInput(EncoderBtn);
     }
 
       //check encoder and pass in turns if turns!=0
   int newEncoderPos =  enc.getCount();
   int encoderTurns = newEncoderPos - lastEncoderPos;
   // if(encoderTurns!=0){Serial.println(encoderTurns);};
-  if (encoderTurns != 0) {
+  if (encoderTurns > 0) {
     lastEncoderPos = newEncoderPos;
-    Serial.println("Encoder turns: " + String(encoderTurns));
-    }  
+    menu.handleInput(EncoderCW);
+    } else if (encoderTurns < 0) {
+    lastEncoderPos = newEncoderPos;
+    menu.handleInput(EncoderCCW);
+    }
 
     // delay(50); // ~20 Hz update, fast enough for ankle motion
 }
