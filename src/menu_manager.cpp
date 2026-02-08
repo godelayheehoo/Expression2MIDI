@@ -10,7 +10,7 @@
 #include <cmath>
 #include <climits>
 #include "curve_constants.h"
-#include "instrument_list.h"
+#include "cc_definitions.h"
 
 // Forward declaration: curve preview helper used by `renderCurveMenu`
 // Added `active` so the preview can indicate which curve is currently active
@@ -34,6 +34,9 @@ MenuManager::MenuManager()
     _stagedCurve = CURVE_LINEAR;
     _inverted = false;
     _invertSelectedIdx = 0;
+    _activeInstrumentIdx = 0;
+    _instrumentSelectedIdx = 0;
+    _instrumentTopIdx = 0;
 }
 
 void MenuManager::begin(Adafruit_ST7796S* tft) {
@@ -355,26 +358,33 @@ void MenuManager::renderInstrumentMenu() {
     _tft->fillScreen(COLOR_BLACK);
     drawMenuTitle("INSTRUMENTS");
 
+    // Count instruments using sentinel
+    int total = 0;
+    for (const InstrumentCCs* p = allInstruments; p && p->name; ++p) ++total;
+
     int16_t w = _tft->width();
     int16_t h = _tft->height();
-    const int valueTextSize = 2;
-    const int lineH = 8 * valueTextSize + 6;
-    int16_t x = 8;
-    int16_t y = TOP_MENU_MARGIN;
-
-    int total = INSTRUMENT_COUNT;
+    const int textSize = 2;
+    const int lineH = 8 * textSize + 6;
     int visible = (h - TOP_MENU_MARGIN) / lineH;
     if (visible < 1) visible = 1;
-    if (_instrumentTopIdx < 0) _instrumentTopIdx = 0;
-    if (_instrumentTopIdx > total - visible) _instrumentTopIdx = max(0, total - visible);
 
-    _tft->setTextSize(valueTextSize);
-    for (int i = 0; i < visible; ++i) {
-        int idx = _instrumentTopIdx + i;
-        if (idx >= total) break;
-        int16_t oy = y + i * lineH;
-        bool isSelected = (idx == _instrumentSelectedIdx);
-        // background highlight for selection
+    // clamp top index
+    if (_instrumentTopIdx < 0) _instrumentTopIdx = 0;
+    if (_instrumentTopIdx > max(0, total - visible)) _instrumentTopIdx = max(0, total - visible);
+
+    int16_t x = 8;
+    int16_t y = TOP_MENU_MARGIN;
+    _tft->setTextSize(textSize);
+
+    // Render visible window
+    int row = 0;
+    for (int i = _instrumentTopIdx; i < total && row < visible; ++i, ++row) {
+        const InstrumentCCs* p = &allInstruments[i];
+        const char* name = p->name ? p->name : "";
+        int16_t oy = y + row * lineH;
+
+        bool isSelected = (i == _instrumentSelectedIdx);
         if (isSelected) {
             int16_t rectW = w - x - 8;
             _tft->fillRect(x - 4, oy - 2, rectW, lineH - 2, COLOR_WHITE);
@@ -382,16 +392,18 @@ void MenuManager::renderInstrumentMenu() {
         } else {
             _tft->setTextColor(COLOR_WHITE);
         }
-        // draw checkbox
+
+        // checkbox
         _tft->setCursor(x, oy);
-        _tft->print("[ "];
+        _tft->print("[ ");
+
         // instrument name color: active one in magenta, others white
         if (!isSelected) {
-            if (idx == _activeInstrumentIdx) _tft->setTextColor(COLOR_MAGENTA, COLOR_BLACK);
+            if (i == _activeInstrumentIdx) _tft->setTextColor(COLOR_MAGENTA, COLOR_BLACK);
             else _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
         }
         _tft->setCursor(x + 20, oy);
-        _tft->print(INSTRUMENT_NAMES[idx]);
+        _tft->print(name);
     }
 }
 void MenuManager::renderInvertMenu() {
@@ -658,9 +670,42 @@ void MenuManager::onCurve_Btn() {
 void MenuManager::onCurve_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
 
 //////////// Instrument Definitions Menu Controls
-void MenuManager::onInstrument_CW() {}
-void MenuManager::onInstrument_CCW() {}
-void MenuManager::onInstrument_Btn() {}
+void MenuManager::onInstrument_CW() {
+    // move selection down, update scroll window
+    // compute total
+    int total = 0;
+    for (const InstrumentCCs* p = allInstruments; p && p->name; ++p) ++total;
+    if (total <= 0) return;
+    _instrumentSelectedIdx = (_instrumentSelectedIdx + 1) % total;
+    int16_t h = _tft->height();
+    const int textSize = 2;
+    const int lineH = 8 * textSize + 6;
+    int visible = (h - TOP_MENU_MARGIN) / lineH;
+    if (_instrumentSelectedIdx >= _instrumentTopIdx + visible) {
+        _instrumentTopIdx = _instrumentSelectedIdx - visible + 1;
+    }
+    renderInstrumentMenu();
+}
+void MenuManager::onInstrument_CCW() {
+    int total = 0;
+    for (const InstrumentCCs* p = allInstruments; p && p->name; ++p) ++total;
+    if (total <= 0) return;
+    _instrumentSelectedIdx = (_instrumentSelectedIdx - 1 + total) % total;
+    int16_t h = _tft->height();
+    const int textSize = 2;
+    const int lineH = 8 * textSize + 6;
+    int visible = (h - TOP_MENU_MARGIN) / lineH;
+    if (_instrumentSelectedIdx < _instrumentTopIdx) {
+        _instrumentTopIdx = _instrumentSelectedIdx;
+    }
+    renderInstrumentMenu();
+}
+void MenuManager::onInstrument_Btn() {
+    // commit active instrument and return to main
+    _activeInstrumentIdx = _instrumentSelectedIdx;
+    _currentMenu = MENU_MAIN;
+    renderMainMenu();
+}
 void MenuManager::onInstrument_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
 
 

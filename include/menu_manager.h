@@ -119,8 +119,8 @@ private:
     bool _inverted;
     int _invertSelectedIdx;
     // Instrument Definitions state
-    int _activeInstrumentIdx; // index into instrument list, 0 == None
-    int _instrumentSelectedIdx; // current cursor in the instruments menu
+    int _activeInstrumentIdx; // index into allInstruments array, 0 == None
+    int _instrumentSelectedIdx; // currently highlighted index in the menu
     int _instrumentTopIdx; // top visible index for scrolling
 };
 
