@@ -1,0 +1,1 @@
+These are sourced from midi.guide. They *should* match the deluge xml definitions, though I processed them myself before a bug fix done for theirs so there could be discrepancies.

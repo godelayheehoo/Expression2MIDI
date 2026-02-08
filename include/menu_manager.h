@@ -14,6 +14,7 @@ enum MenuState : uint8_t {
     MENU_CALIBRATION,
     MENU_INVERT,
     MENU_CURVE,
+    MENU_INSTRUMENTS,
     MENU_COUNT
 };
 
@@ -46,6 +47,7 @@ public:
     void renderMidiCCMenu();
     void renderCalibrationMenu();
     void renderInvertMenu();
+    void renderInstrumentMenu();
     void renderCurveMenu();
     void render();
     void handleInput(InputEvent ev);
@@ -84,6 +86,11 @@ public:
     void onCurve_CCW();
     void onCurve_Btn();
     void onCurve_Aux();
+    // Instrument Definitions menu handlers
+    void onInstrument_CW();
+    void onInstrument_CCW();
+    void onInstrument_Btn();
+    void onInstrument_Aux();
     // Invert menu handlers
     void onInvert_CW();
     void onInvert_CCW();

@@ -1,49 +1,41 @@
-import xml.etree.ElementTree as ET
+import re
 from pathlib import Path
 
 parent_dir = Path(__file__).parent
 HEADER_FILENAME = parent_dir / "../include/ccDefinitions.h"
 FOLDER_PATH = parent_dir / "." 
+
+
 def parse_xml_to_cc_array(xml_path: Path):
     """
-    Parses a single XML and returns a tuple:
-    (instrument_name, list of (cc_number, label))
+    Parses a single XML manually using regex to handle numeric attributes.
+    Returns (instrument_name, list of (cc_number, label))
     """
-    with open(xml_path, "r", encoding="utf-8") as f:
-        xml_text = f.read()
-
-    # Collapse newlines inside ccLabels to avoid parser errors
-    xml_text = xml_text.replace("\n", " ")
-
-    try:
-        root = ET.fromstring(xml_text)
-    except ET.ParseError as e:
-        print(f"Error parsing {xml_path}: {e}")
-        return xml_path.stem, []
-
-    # Use filename (without extension) as instrument name
     instrument_name = xml_path.stem
+    cc_list = []
 
-    cc_labels_elem = root.find("ccLabels")
-    if cc_labels_elem is None:
+    with open(xml_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # Find the ccLabels tag content
+    match = re.search(r"<ccLabels\s+(.*?)\s*/>", content, re.DOTALL)
+    if not match:
         return instrument_name, []
 
-    cc_list = []
-    for cc_str, label in cc_labels_elem.attrib.items():
-        try:
-            cc_num = int(cc_str)
-        except ValueError:
-            continue
+    attrs = match.group(1)
+
+    # Extract all number="label" pairs
+    pattern = re.compile(r'(\d+)\s*=\s*"([^"]*)"')
+    for cc_str, label in pattern.findall(attrs):
+        cc_num = int(cc_str)
         if label.strip() == "":
             label = None
         cc_list.append((cc_num, label))
-    
+
     return instrument_name, cc_list
 
+
 def generate_header(instrument_ccs):
-    """
-    Generates the content of the C++ header
-    """
     lines = [
         "#pragma once",
         "#include <stdint.h>",
@@ -55,19 +47,35 @@ def generate_header(instrument_ccs):
         ""
     ]
 
+    # Generate the arrays for each instrument
     for name, cc_list in instrument_ccs:
+        safe_name = name.replace("-", "_")
         lines.append(f"// {name}")
-        lines.append(f"const CCLabel {name}[] = {{")
+        lines.append(f"const CCLabel {safe_name}[] = {{")
         for cc, label in cc_list:
             if label is None:
                 lines.append(f"    {{ {cc}, nullptr }},")
             else:
                 label_escaped = label.replace('"', '\\"')
                 lines.append(f'    {{ {cc}, "{label_escaped}" }},')
-        lines.append("    { 0, nullptr }")  # sentinel
+        lines.append("    { 0, nullptr }")
         lines.append("};\n")
 
+    # Generate the registry array
+    lines.append("struct InstrumentCCs {")
+    lines.append("    const char* name;")
+    lines.append("    const CCLabel* ccArray;")
+    lines.append("};\n")
+
+    lines.append("const InstrumentCCs allInstruments[] = {")
+    for name, _ in instrument_ccs:
+        safe_name = name.replace("-", "_")
+        lines.append(f'    {{ "{name}", {safe_name} }},')
+    lines.append("    { nullptr, nullptr } // sentinel")
+    lines.append("};\n")
+
     return "\n".join(lines)
+
 
 def process_folder(folder_path: str, header_filename: str = HEADER_FILENAME):
     folder = Path(folder_path)
@@ -86,6 +94,7 @@ def process_folder(folder_path: str, header_filename: str = HEADER_FILENAME):
     with open(header_filename, "w", encoding="utf-8") as f:
         f.write(header_content)
     print(f"Wrote {header_filename} with {len(instrument_ccs)} instruments.")
+
 
 # ----------------- Run -----------------
 if __name__ == "__main__":

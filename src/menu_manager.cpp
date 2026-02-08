@@ -136,7 +136,8 @@ void MenuManager::renderMainMenu() {
         "MIDI CC Number",
         "Calibration",
         "Invert",
-        "Curve"
+        "Curve",
+        "Instrument Definitions"
     };
     const int optionCount = sizeof(options) / sizeof(options[0]);
 
@@ -167,12 +168,12 @@ void MenuManager::renderMainMenu() {
 
 void MenuManager::onMain_CW() {
     // move selection down
-    const int count = 6; // number of main options
+    const int count = 7; // number of main options
     _mainSelectedIdx = (_mainSelectedIdx + 1) % count;
     renderMainMenu();
 }
 void MenuManager::onMain_CCW() {
-    const int count = 6;
+    const int count = 7;
     _mainSelectedIdx = (_mainSelectedIdx - 1 + count) % count;
     renderMainMenu();
 }
@@ -185,6 +186,7 @@ void MenuManager::onMain_Btn() {
         case 3: _currentMenu = MENU_CALIBRATION; break;
         case 4: _currentMenu = MENU_INVERT; break;
         case 5: _currentMenu = MENU_CURVE; _stagedCurve = _currentCurve; break;
+        case 6: _currentMenu = MENU_INSTRUMENTS; break;
         default: _currentMenu = MENU_MAIN; break;
     }
     // Render the selected menu (each submenu will show its title)
@@ -343,6 +345,11 @@ void MenuManager::renderCalibrationMenu() {
     if (!_initialized || !_tft) return;
     _tft->fillScreen(COLOR_BLACK);
     drawMenuTitle("CALIBRATION");
+}
+void MenuManager::renderInstrumentMenu() {
+    if (!_initialized || !_tft) return;
+    _tft->fillScreen(COLOR_BLACK);
+    drawMenuTitle("INSTRUMENTS");
 }
 void MenuManager::renderInvertMenu() {
     if (!_initialized || !_tft) return;
@@ -607,6 +614,12 @@ void MenuManager::onCurve_Btn() {
 }
 void MenuManager::onCurve_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
 
+//////////// Instrument Definitions Menu Controls
+void MenuManager::onInstrument_CW() {}
+void MenuManager::onInstrument_CCW() {}
+void MenuManager::onInstrument_Btn() {}
+void MenuManager::onInstrument_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
+
 
 
 
@@ -626,6 +639,9 @@ const MenuHandlers menuHandlersTable[MENU_COUNT] = {
     { &MenuManager::onInvert_CW, &MenuManager::onInvert_CCW, &MenuManager::onInvert_Btn, &MenuManager::onInvert_Aux },
     // MENU_CURVE
     { &MenuManager::onCurve_CW, &MenuManager::onCurve_CCW, &MenuManager::onCurve_Btn, &MenuManager::onCurve_Aux }
+    ,
+    // MENU_INSTRUMENTS
+    { &MenuManager::onInstrument_CW, &MenuManager::onInstrument_CCW, &MenuManager::onInstrument_Btn, &MenuManager::onInstrument_Aux }
 };
 
 
