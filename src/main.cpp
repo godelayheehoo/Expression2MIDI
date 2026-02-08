@@ -189,6 +189,20 @@ void loop() {
     menu.handleInput(EncoderCCW);
     }
 
+    // Monitor polling (non-blocking)
+    const unsigned long MONITOR_POLL_MS = 100; // poll every 100 ms
+    static unsigned long lastMonitorPoll = 0;
+    unsigned long now = millis();
+    if ((now - lastMonitorPoll) >= MONITOR_POLL_MS) {
+      lastMonitorPoll = now;
+      int raw = analogRead(PEDAL_PIN);
+      int norm = map(raw, pedalMin, pedalMax, 0, 1023);
+      norm = constrain(norm, 0, 1023);
+      // Debug print whenever polled
+      Serial.print("Monitor poll - raw:"); Serial.print(raw); Serial.print(" norm:"); Serial.println(norm);
+      menu.updateMonitor(raw, norm);
+    }
+
     // delay(50); // ~20 Hz update, fast enough for ankle motion
 }
 

@@ -38,6 +38,8 @@ public:
     void render();
     void handleInput(InputEvent ev);
     void drawMenuTitle(const char* title);
+    // Monitor update called from main loop when polling
+    void updateMonitor(int rawADC, int norm);
     // Per-menu handlers
     void onMain_CW();
     void onMain_CCW();
@@ -74,6 +76,9 @@ private:
     bool _initialized;
     MenuState _currentMenu;
     int _mainSelectedIdx;
+    // Monitor cached values
+    int _lastRaw;
+    int _lastNorm;
 };
 
 // Table-driven handlers struct

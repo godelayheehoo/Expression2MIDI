@@ -166,6 +166,92 @@ void MenuManager::renderMonitorMenu() {
     _tft->fillScreen(COLOR_BLACK);
     drawMenuTitle("MONITOR");
 }
+
+void MenuManager::updateMonitor(int rawADC, int norm) {
+    if (!_initialized || !_tft) return;
+    if (_currentMenu != MENU_MONITOR) {
+        // cache values but don't draw
+        _lastRaw = rawADC;
+        _lastNorm = norm;
+        return;
+    }
+
+    // Only update if value changed
+    if (rawADC == _lastRaw && norm == _lastNorm) return;
+    _lastRaw = rawADC;
+    _lastNorm = norm;
+
+    int16_t w = _tft->width();
+    int16_t h = _tft->height();
+
+    // Layout: Big raw (4 digits) centered, down arrow, mapped (norm) centered
+    // Big raw
+    char rawbuf[16];
+    snprintf(rawbuf, sizeof(rawbuf), "%4d", rawADC); // fixed width 4
+    _tft->setTextSize(4);
+    _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
+    const int rawCharW = 6 * 4;
+    const int rawDigits = 4;
+    const int rawTextW = rawCharW * rawDigits; // fixed area
+    int16_t rawX = (w - rawTextW) / 2;
+    int16_t rawY = h / 2 - 48;
+    if (rawX < 0) rawX = 0;
+    if (rawY < 0) rawY = 0;
+    // Clear area (fixed width) to avoid leftover digits
+    _tft->fillRect(rawX - 6, rawY - 6, rawTextW + 12, 44, COLOR_BLACK);
+    _tft->setCursor(rawX, rawY);
+    _tft->print(rawbuf);
+
+    // Downwards pointing arrow (triangle)
+    int16_t arrowCX = w / 2;
+    int16_t arrowTopY = rawY + 44; // below raw number
+    int16_t arrowSize = 8;
+    // Clear arrow area
+    _tft->fillRect(arrowCX - arrowSize - 4, arrowTopY - 2, arrowSize * 2 + 8, arrowSize + 8, COLOR_BLACK);
+    // draw triangle pointing down
+    int16_t ax0 = arrowCX;
+    int16_t ay0 = arrowTopY + arrowSize;
+    int16_t ax1 = arrowCX - arrowSize;
+    int16_t ay1 = arrowTopY;
+    int16_t ax2 = arrowCX + arrowSize;
+    int16_t ay2 = arrowTopY;
+    _tft->fillTriangle(ax0, ay0, ax1, ay1, ax2, ay2, COLOR_WHITE);
+
+    // Mapped (normalized) value below arrow, fixed width 4
+    char normbuf[16];
+    snprintf(normbuf, sizeof(normbuf), "%4d", norm);
+    _tft->setTextSize(3);
+    _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
+    const int normCharW = 6 * 3;
+    const int normDigits = 4;
+    const int normTextW = normCharW * normDigits;
+    int16_t normX = (w - normTextW) / 2;
+    int16_t normY = arrowTopY + arrowSize + 6;
+    if (normX < 0) normX = 0;
+    // Clear area for normalized display
+    _tft->fillRect(normX - 6, normY - 4, normTextW + 12, 32, COLOR_BLACK);
+    _tft->setCursor(normX, normY);
+    _tft->print(normbuf);
+
+    // Draw a horizontal progress bar below the mapped value
+    int barW = w - 40;
+    int barX = 20;
+    int barY = normY + 40;
+    int barH = 16;
+    // background
+    _tft->drawRect(barX, barY, barW, barH, COLOR_WHITE);
+    // fill
+    int fillW = (int)((long)norm * (long)barW / 1023);
+    if (fillW > 0) {
+        _tft->fillRect(barX + 1, barY + 1, max(0, fillW - 2), barH - 2, COLOR_CYAN);
+    } else {
+        // clear inside
+        _tft->fillRect(barX + 1, barY + 1, barW - 2, barH - 2, COLOR_BLACK);
+    }
+
+    // restore default text size
+    _tft->setTextSize(1);
+}
 void MenuManager::renderMidiChannelMenu() {
     if (!_initialized || !_tft) return;
     _tft->fillScreen(COLOR_BLACK);
