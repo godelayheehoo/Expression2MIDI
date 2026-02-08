@@ -238,15 +238,14 @@ void MenuManager::updateMonitor(int rawADC, int norm) {
     int barX = 20;
     int barY = normY + 40;
     int barH = 16;
-    // background
+    // background border
     _tft->drawRect(barX, barY, barW, barH, COLOR_WHITE);
-    // fill
+    // clear inside first (ensures decreases erase previous fill)
+    _tft->fillRect(barX + 1, barY + 1, barW - 2, barH - 2, COLOR_BLACK);
+    // fill to new width
     int fillW = (int)((long)norm * (long)barW / 1023);
     if (fillW > 0) {
         _tft->fillRect(barX + 1, barY + 1, max(0, fillW - 2), barH - 2, COLOR_CYAN);
-    } else {
-        // clear inside
-        _tft->fillRect(barX + 1, barY + 1, barW - 2, barH - 2, COLOR_BLACK);
     }
 
     // restore default text size
@@ -299,8 +298,9 @@ void MenuManager::onCurve_CCW() {}
 void MenuManager::onCurve_Btn() {}
 void MenuManager::onCurve_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
 void MenuManager::onMain_Aux() {
-    //TODO: Implement quick return to Monitor Value
-    Serial.println("Quick return to Monitor Value");
+    // Jump directly to Monitor menu and render it
+    _currentMenu = MENU_MONITOR;
+    render();
 
 }
 
