@@ -118,6 +118,10 @@ private:
     // Invert state (persisted) and staged selection index for the Invert menu
     bool _inverted;
     int _invertSelectedIdx;
+    // Instrument Definitions state
+    int _activeInstrumentIdx; // index into instrument list, 0 == None
+    int _instrumentSelectedIdx; // current cursor in the instruments menu
+    int _instrumentTopIdx; // top visible index for scrolling
 };
 
 // Table-driven handlers struct

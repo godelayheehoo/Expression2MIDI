@@ -68,6 +68,7 @@ def generate_header(instrument_ccs):
     lines.append("};\n")
 
     lines.append("const InstrumentCCs allInstruments[] = {")
+    lines.append('    { "None", nullptr },')
     for name, _ in instrument_ccs:
         safe_name = name.replace("-", "_")
         lines.append(f'    {{ "{name}", {safe_name} }},')

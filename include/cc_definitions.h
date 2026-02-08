@@ -1233,6 +1233,7 @@ struct InstrumentCCs {
 };
 
 const InstrumentCCs allInstruments[] = {
+    { "None", nullptr },
     { "arturia_microfreak_deluge", arturia_microfreak_deluge },
     { "asm_hydrasynth_deluge", asm_hydrasynth_deluge },
     { "audiothingies_micromonsta-2_deluge", audiothingies_micromonsta_2_deluge },

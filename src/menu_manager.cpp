@@ -10,6 +10,7 @@
 #include <cmath>
 #include <climits>
 #include "curve_constants.h"
+#include "instrument_list.h"
 
 // Forward declaration: curve preview helper used by `renderCurveMenu`
 // Added `active` so the preview can indicate which curve is currently active
@@ -70,6 +71,9 @@ void MenuManager::render() {
             break;
         case MENU_INVERT:
             renderInvertMenu();
+            break;
+        case MENU_INSTRUMENTS:
+            renderInstrumentMenu();
             break;
         case MENU_CURVE:
             renderCurveMenu();
@@ -350,6 +354,45 @@ void MenuManager::renderInstrumentMenu() {
     if (!_initialized || !_tft) return;
     _tft->fillScreen(COLOR_BLACK);
     drawMenuTitle("INSTRUMENTS");
+
+    int16_t w = _tft->width();
+    int16_t h = _tft->height();
+    const int valueTextSize = 2;
+    const int lineH = 8 * valueTextSize + 6;
+    int16_t x = 8;
+    int16_t y = TOP_MENU_MARGIN;
+
+    int total = INSTRUMENT_COUNT;
+    int visible = (h - TOP_MENU_MARGIN) / lineH;
+    if (visible < 1) visible = 1;
+    if (_instrumentTopIdx < 0) _instrumentTopIdx = 0;
+    if (_instrumentTopIdx > total - visible) _instrumentTopIdx = max(0, total - visible);
+
+    _tft->setTextSize(valueTextSize);
+    for (int i = 0; i < visible; ++i) {
+        int idx = _instrumentTopIdx + i;
+        if (idx >= total) break;
+        int16_t oy = y + i * lineH;
+        bool isSelected = (idx == _instrumentSelectedIdx);
+        // background highlight for selection
+        if (isSelected) {
+            int16_t rectW = w - x - 8;
+            _tft->fillRect(x - 4, oy - 2, rectW, lineH - 2, COLOR_WHITE);
+            _tft->setTextColor(COLOR_BLACK);
+        } else {
+            _tft->setTextColor(COLOR_WHITE);
+        }
+        // draw checkbox
+        _tft->setCursor(x, oy);
+        _tft->print("[ "];
+        // instrument name color: active one in magenta, others white
+        if (!isSelected) {
+            if (idx == _activeInstrumentIdx) _tft->setTextColor(COLOR_MAGENTA, COLOR_BLACK);
+            else _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
+        }
+        _tft->setCursor(x + 20, oy);
+        _tft->print(INSTRUMENT_NAMES[idx]);
+    }
 }
 void MenuManager::renderInvertMenu() {
     if (!_initialized || !_tft) return;
