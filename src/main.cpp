@@ -85,8 +85,13 @@ ESP32Encoder enc;
 long lastEncoderPos = 0;
 ButtonHelper encoderBtnHelper(ENCODER_BTN, DEFAULT_BUTTON_DEBOUNCE_MS);
 
-// Interrupt flags
-bool encoderButtonFlag = false;
+// curve stuff
+// --- global/static variables for smoothing ---
+float smoothedNorm = 0;     // keeps track of EMA
+const float SMOOTH_ALPHA = 0.2; // smaller = smoother, larger = more responsive
+
+int lastMapped = -1;        // last MIDI output value
+const int DEADBAND = 1;     // ignore changes smaller than this
 
 
 
@@ -94,6 +99,8 @@ bool encoderButtonFlag = false;
 
 ///// function prototypes
 void tftStartupTest();
+
+void processPedalValue();
 
 // ISRs
 // void IRAM_ATTR encoderButtonISR() {
@@ -153,12 +160,7 @@ void setup() {
 
 void loop() {
     // Read raw ADC
-    int raw = analogRead(PEDAL_PIN);
-
-    // Normalize to 0-1023 for convenience
-    int norm = map(raw, pedalMin, pedalMax, 0, 1023);
-    norm = constrain(norm, 0, 1023);
-
+    processPedalValue();
     // Print values for debugging
     // Serial.print("Raw ADC: ");
     // Serial.print(raw);
@@ -195,12 +197,7 @@ void loop() {
     unsigned long now = millis();
     if ((now - lastMonitorPoll) >= MONITOR_POLL_MS) {
       lastMonitorPoll = now;
-      int raw = analogRead(PEDAL_PIN);
-      int norm = map(raw, pedalMin, pedalMax, 0, 1023);
-      norm = constrain(norm, 0, 1023);
-      // Debug print whenever polled
-    //   Serial.print("Monitor poll - raw:"); Serial.print(raw); Serial.print(" norm:"); Serial.println(norm);
-      menu.updateMonitor(raw, norm);
+      processPedalValue();
     }
 
     // delay(50); // ~20 Hz update, fast enough for ankle motion
@@ -259,4 +256,40 @@ void tftStartupTest() {
   tft.print(msg);
   delay(1000);
   tft.setTextSize(1);
+}
+
+void processPedalValue() {
+    // --- global/static variables for smoothing ---
+float smoothedNorm = 0;     // keeps track of EMA
+const float SMOOTH_ALPHA = 0.2; // smaller = smoother, larger = more responsive
+
+int lastMapped = -1;        // last MIDI output value
+const int DEADBAND = 1;     // ignore changes smaller than this
+
+// --- inside your loop / pedal read function ---
+int raw = analogRead(PEDAL_PIN);
+
+// Normalize
+int norm = map(raw, pedalMin, pedalMax, 0, 1023);
+norm = constrain(norm, 0, 1023);
+
+// --- EMA smoothing ---
+smoothedNorm = SMOOTH_ALPHA * norm + (1 - SMOOTH_ALPHA) * smoothedNorm;
+
+// --- Apply curve ---
+float mappedFloat = menu.applyCurve(smoothedNorm); // still 0..1023 if your curve preserves range
+
+// --- Quantize to MIDI 0-127 ---
+uint8_t mapped = (uint8_t)(mappedFloat * 127 / 1023);
+
+// --- Optional: deadband check ---
+if (lastMapped == -1 || abs(mapped - lastMapped) >= DEADBAND) {
+    lastMapped = mapped;
+    // send MIDI, update TFT, etc.
+    Serial.print("Raw: "); Serial.print(norm);
+    Serial.print(" | Mapped MIDI: "); Serial.println(mapped);
+}
+
+    menu.updateMonitor(norm, (int)mapped);
+
 }

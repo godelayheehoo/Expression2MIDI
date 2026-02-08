@@ -90,3 +90,9 @@ Store settings in EEPROM
 Add optional panic / reset gesture
 
 Optimize TFT updates to avoid flicker / jitter
+
+
+## Nice optiimizations:
+ - smarter screen redrawing
+ - *try* color gradients on curves (could look cool).
+ - play around with different color schemes, maybe have selectable palettes even?

@@ -50,6 +50,8 @@ public:
     void drawMenuTitle(const char* title);
     // Monitor update called from main loop when polling
     void updateMonitor(int rawADC, int norm);
+    // Public wrapper to map a linear 0..1023 value through the selected curve
+    int applyCurve(int linear);
     // Per-menu handlers
     void onMain_CW();
     void onMain_CCW();
@@ -82,6 +84,8 @@ public:
     void onCurve_Aux();
 
 private:
+    // Apply currently selected curve to a linear 0..1023 input
+    int mapCurve(int linear);
     Adafruit_ST7796S* _tft;
     bool _initialized;
     MenuState _currentMenu;

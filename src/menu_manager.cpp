@@ -8,6 +8,7 @@
 #include "color_utils.h"
 #include "eeprom_storage.h"
 #include <cmath>
+#include "curve_constants.h"
 
 // Forward declaration: curve preview helper used by `renderCurveMenu`
 static void drawCurvePreview(Adafruit_ST7796S* tft, CurveType ct);
@@ -253,9 +254,12 @@ void MenuManager::updateMonitor(int rawADC, int norm) {
     _tft->setCursor(rawX, rawY);
     _tft->print(rawbuf);
 
-    // Mapped (normalized) value below arrow, same font size, use magenta
+    // The second parameter is now the already-mapped value (0..1023)
+    int mapped = norm;
+
+    // Mapped (curved) value below arrow, same font size, use magenta
     char normbuf[16];
-    snprintf(normbuf, sizeof(normbuf), "%4d", norm);
+    snprintf(normbuf, sizeof(normbuf), "%4d", mapped);
     _tft->setTextSize(valueTextSize);
     _tft->setTextColor(COLOR_MAGENTA, COLOR_BLACK);
     const int normCharW = 6 * valueTextSize;
@@ -287,7 +291,7 @@ void MenuManager::updateMonitor(int rawADC, int norm) {
     // clear inside first (ensures decreases erase previous fill)
     _tft->fillRect(barX + 1, barY + 1, barW - 2, barH - 2, COLOR_BLACK);
     // fill to new width
-    int fillW = (int)((long)norm * (long)barW / 1023);
+    int fillW = (int)((long)mapped * (long)barW / 1023);
     if (fillW > 0) {
         _tft->fillRect(barX + 1, barY + 1, max(0, fillW - 2), barH - 2, COLOR_CYAN);
     }
@@ -369,8 +373,13 @@ static void drawCurvePreview(Adafruit_ST7796S* tft, CurveType ct) {
         }
         int px = gx + i;
         int py = gy + gh - 1 - (int)(y * (gh - 2));
-        // draw small pixel or line from last to current for continuity
-        tft->drawLine(lastX, lastY, px, py, COLOR_MAGENTA);
+        // draw thicker line by drawing multiple offset lines and a small filled circle
+        int thickness = 2; // increased thickness for bolder curve
+        for (int t = -thickness; t <= thickness; ++t) {
+            tft->drawLine(lastX, lastY + t, px, py + t, COLOR_MAGENTA);
+        }
+        // smooth end cap
+        tft->fillCircle(px, py, thickness, COLOR_MAGENTA);
         lastX = px;
         lastY = py;
     }
@@ -385,7 +394,7 @@ static void drawCurvePreview(Adafruit_ST7796S* tft, CurveType ct) {
         default: name = "Unknown"; break;
     }
     tft->setTextSize(2);
-    tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
+    tft->setTextColor(COLOR_YELLOW, COLOR_BLACK);
     tft->setCursor(gx + 6, gy + 6);
     tft->print(name);
     tft->setTextSize(1);
@@ -428,6 +437,55 @@ void MenuManager::onCurve_CCW() {
     _currentCurve = (CurveType)c;
     eeprom_saveCurve((uint8_t)_currentCurve);
     renderCurveMenu();
+}
+
+int MenuManager::mapCurve(int linear) {
+    // linear: 0..1023
+    float x = 0.0f;
+    if (linear <= 0) x = 0.0f; else x = (float)linear / 1023.0f;
+    float y = x;
+    switch (_currentCurve) {
+        case CURVE_LINEAR:
+            y = x;
+            break;
+        case CURVE_LOGARITHMIC: {
+            float base = CURVE_LOG_BASE; // >1
+            // y = log(1 + (base-1)*x) / log(base)
+            float denom = logf(base);
+            if (denom == 0.0f) y = x; else y = logf(1.0f + (base - 1.0f) * x) / denom;
+            break;
+        }
+        case CURVE_EXPONENTIAL: {
+            float k = CURVE_EXP_K;
+            float num = expf(k * x) - 1.0f;
+            float den = expf(k) - 1.0f;
+            if (den == 0.0f) y = x; else y = num / den;
+            break;
+        }
+        case CURVE_SIGMOIDAL: {
+            float s = CURVE_SIGMOID_STEEPNESS;
+            y = 1.0f / (1.0f + expf(-s * (x - 0.5f)));
+            break;
+        }
+        case CURVE_TANGENT: {
+            float f = CURVE_TAN_SCALE; // scale
+            float t = tanf(f * (x - 0.5f));
+            float tmin = tanf(-f * 0.5f);
+            float tmax = tanf(f * 0.5f);
+            if (tmax - tmin == 0.0f) y = x; else y = (t - tmin) / (tmax - tmin);
+            break;
+        }
+        default:
+            y = x;
+    }
+    if (y < 0.0f) y = 0.0f;
+    if (y > 1.0f) y = 1.0f;
+    int mapped = (int)roundf(y * 1023.0f);
+    return mapped;
+}
+
+int MenuManager::applyCurve(int linear) {
+    return mapCurve(linear);
 }
 void MenuManager::onCurve_Btn() {}
 void MenuManager::onCurve_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
