@@ -8,10 +8,12 @@
 #include "color_utils.h"
 #include "eeprom_storage.h"
 #include <cmath>
+#include <climits>
 #include "curve_constants.h"
 
 // Forward declaration: curve preview helper used by `renderCurveMenu`
-static void drawCurvePreview(Adafruit_ST7796S* tft, CurveType ct);
+// Added `active` so the preview can indicate which curve is currently active
+static void drawCurvePreview(Adafruit_ST7796S* tft, CurveType ct, CurveType active);
 
 
 #define TOP_MENU_MARGIN 50
@@ -28,6 +30,7 @@ MenuManager::MenuManager()
     _monitorArrowTopY = -1;
     _monitorArrowCX = -1;
     _currentCurve = CURVE_LINEAR;
+    _stagedCurve = CURVE_LINEAR;
 }
 
 void MenuManager::begin(Adafruit_ST7796S* tft) {
@@ -38,6 +41,7 @@ void MenuManager::begin(Adafruit_ST7796S* tft) {
     uint8_t c = eeprom_getCurve();
     if (c >= CURVE_COUNT) c = CURVE_LINEAR;
     _currentCurve = (CurveType)c;
+    _stagedCurve = _currentCurve;
 }
 
 void MenuManager::render() {
@@ -169,7 +173,7 @@ void MenuManager::onMain_Btn() {
         case 1: _currentMenu = MENU_MIDI_CHANNEL; break;
         case 2: _currentMenu = MENU_MIDI_CC_NUMBER; break;
         case 3: _currentMenu = MENU_CALIBRATION; break;
-        case 4: _currentMenu = MENU_CURVE; break;
+        case 4: _currentMenu = MENU_CURVE; _stagedCurve = _currentCurve; break;
         default: _currentMenu = MENU_MAIN; break;
     }
     // Render the selected menu (each submenu will show its title)
@@ -183,6 +187,10 @@ void MenuManager::onMain_Aux() {
 }
     
 // --- Submenu renders & handlers (minimal: just a title)
+
+
+
+//////////// Monitor Menu
 void MenuManager::renderMonitorMenu() {
     if (!_initialized || !_tft) return;
     _tft->fillScreen(COLOR_BLACK);
@@ -211,7 +219,14 @@ void MenuManager::renderMonitorMenu() {
     _monitorTriangleDrawn = true;
     _monitorArrowTopY = arrowTopY;
     _monitorArrowCX = arrowCX;
-    // Leave numbers to updateMonitor when values arrive
+    // Force an initial draw of the numbers using any cached values. We
+    // temporarily clear the cached values so updateMonitor treats the
+    // cached readings as changes and draws them immediately.
+    int cachedRaw = _lastRaw;
+    int cachedNorm = _lastNorm;
+    _lastRaw = INT_MIN;
+    _lastNorm = INT_MIN;
+    updateMonitor(cachedRaw, cachedNorm);
 }
 
 void MenuManager::updateMonitor(int rawADC, int norm) {
@@ -223,8 +238,12 @@ void MenuManager::updateMonitor(int rawADC, int norm) {
         return;
     }
 
-    // Only update if value changed
-    if (rawADC == _lastRaw && norm == _lastNorm) return;
+    // Determine which parts need redrawing separately so MIDI jitter doesn't
+    // force redrawing of the large MIDI number/progress bar every poll.
+    bool redrawRaw = (rawADC != _lastRaw);
+    bool redrawMidi = (norm != _lastNorm);
+    if (!redrawRaw && !redrawMidi) return;
+    // update cached values
     _lastRaw = rawADC;
     _lastNorm = norm;
 
@@ -249,51 +268,51 @@ void MenuManager::updateMonitor(int rawADC, int norm) {
     int16_t normY = h - rawHeight - rawY; // place output lower
     if (rawX < 0) rawX = 0;
     if (rawY < 0) rawY = 0;
-    // Clear area (fixed width) to avoid leftover digits (do not touch triangle area)
-    _tft->fillRect(rawX - 6, rawY - 6, rawTextW + 12, rawHeight + 4, COLOR_BLACK);
-    _tft->setCursor(rawX, rawY);
-    _tft->print(rawbuf);
+    if (redrawRaw) {
+        // Clear area (fixed width) to avoid leftover digits (do not touch triangle area)
+        _tft->fillRect(rawX - 6, rawY - 6, rawTextW + 12, rawHeight + 4, COLOR_BLACK);
+        _tft->setCursor(rawX, rawY);
+        _tft->print(rawbuf);
+    }
 
     // The second parameter is now the already-mapped value (0..1023)
     int mapped = norm;
 
     // Mapped (curved) value below arrow, same font size, use magenta
-    char normbuf[16];
-    snprintf(normbuf, sizeof(normbuf), "%4d", mapped);
-    _tft->setTextSize(valueTextSize);
-    _tft->setTextColor(COLOR_MAGENTA, COLOR_BLACK);
-    const int normCharW = 6 * valueTextSize;
-    const int normDigits = 4;
-    const int normTextW = normCharW * normDigits;
-    const int normHeight = rawHeight;
-    int16_t normX = (w - normTextW) / 2;
-    // Use the same computed normY as layout above so we don't need to recompute arrow
-    // (arrow was pre-drawn in renderMonitorMenu)
-    // recompute arrowTopY for local use
-    int16_t arrowCX = w / 2;
-    int16_t arrowSize = 8;
-    int16_t arrowCenterY = (rawY + rawHeight + normY) / 2;
-    int16_t arrowTopY = arrowCenterY - arrowSize;
-    if (normX < 0) normX = 0;
-    // Clear area for normalized display
-    _tft->fillRect(normX - 6, normY - 6, normTextW + 12, normHeight + 16, COLOR_BLACK);
-    _tft->setCursor(normX, normY);
-    _tft->print(normbuf);
+    if (redrawMidi) {
+        char normbuf[16];
+        snprintf(normbuf, sizeof(normbuf), "%4d", mapped);
+        _tft->setTextSize(valueTextSize);
+        _tft->setTextColor(COLOR_MAGENTA, COLOR_BLACK);
+        const int normCharW = 6 * valueTextSize;
+        const int normDigits = 4;
+        const int normTextW = normCharW * normDigits;
+        const int normHeight = rawHeight;
+        int16_t normX = (w - normTextW) / 2;
+        // Use the same computed normY as layout above so we don't need to recompute arrow
+        // (arrow was pre-drawn in renderMonitorMenu)
+        if (normX < 0) normX = 0;
+        // Clear area for normalized display
+        _tft->fillRect(normX - 6, normY - 6, normTextW + 12, normHeight + 16, COLOR_BLACK);
+        _tft->setCursor(normX, normY);
+        _tft->print(normbuf);
 
-    // Draw a horizontal progress bar below the mapped value
-    int barW = w - 40;
-    int barX = 20;
-    // place bar near bottom of screen
-    int barH = 16;
-    int barY = h - barH - 12;
-    // background border
-    _tft->drawRect(barX, barY, barW, barH, COLOR_WHITE);
-    // clear inside first (ensures decreases erase previous fill)
-    _tft->fillRect(barX + 1, barY + 1, barW - 2, barH - 2, COLOR_BLACK);
-    // fill to new width
-    int fillW = (int)((long)mapped * (long)barW / 1023);
-    if (fillW > 0) {
-        _tft->fillRect(barX + 1, barY + 1, max(0, fillW - 2), barH - 2, COLOR_CYAN);
+        // Draw a horizontal progress bar below the mapped value (0..127 MIDI)
+        int barW = w - 40;
+        int barX = 20;
+        // place bar near bottom of screen
+        int barH = 16;
+        int barY = h - barH - 12;
+        // background border
+        _tft->drawRect(barX, barY, barW, barH, COLOR_WHITE);
+        // clear inside first (ensures decreases erase previous fill)
+        _tft->fillRect(barX + 1, barY + 1, barW - 2, barH - 2, COLOR_BLACK);
+        // fill to new width (scale mapped 0..127)
+        int fillW = 0;
+        if (mapped > 0) fillW = (int)((long)mapped * (long)barW / 127);
+        if (fillW > 0) {
+            _tft->fillRect(barX + 1, barY + 1, max(0, fillW - 2), barH - 2, COLOR_CYAN);
+        }
     }
 
     // restore default text size
@@ -318,12 +337,14 @@ void MenuManager::renderCurveMenu() {
     if (!_initialized || !_tft) return;
     _tft->fillScreen(COLOR_BLACK);
     drawMenuTitle("CURVE");
-    // draw preview of currently selected curve
-    drawCurvePreview(_tft, _currentCurve);
+    // draw preview of currently selected (staged) curve and show which is active
+    drawCurvePreview(_tft, _stagedCurve, _currentCurve);
 }
 
+//////////// Curve Menu
+
 // Helper: draw a preview of the given curve type into the screen center area
-static void drawCurvePreview(Adafruit_ST7796S* tft, CurveType ct) {
+static void drawCurvePreview(Adafruit_ST7796S* tft, CurveType ct, CurveType active) {
     if (!tft) return;
     int16_t w = tft->width();
     int16_t h = tft->height();
@@ -397,45 +418,59 @@ static void drawCurvePreview(Adafruit_ST7796S* tft, CurveType ct) {
     tft->setTextColor(COLOR_YELLOW, COLOR_BLACK);
     tft->setCursor(gx + 6, gy + 6);
     tft->print(name);
+    // If this previewed curve is the currently active one, mark it
+    if (ct == active) {
+        tft->setTextSize(1);
+        tft->setTextColor(COLOR_CYAN, COLOR_BLACK);
+        // place below the name (approx font height for size 2 is 16px)
+        int16_t labelY = gy + 6 + 18;
+        tft->setCursor(gx + 6, labelY);
+        tft->print("[active]");
+    }
     tft->setTextSize(1);
 }
 
 // Submenu auxiliary/button handlers: return to main menu
+//////////// Monitor Menu Controls
 void MenuManager::onMonitor_CW() {}
 void MenuManager::onMonitor_CCW() {}
 void MenuManager::onMonitor_Btn() {}
 void MenuManager::onMonitor_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
+
+//////////// MIDI Channel Menu Controls
 
 void MenuManager::onMidiChannel_CW() {}
 void MenuManager::onMidiChannel_CCW() {}
 void MenuManager::onMidiChannel_Btn() {}
 void MenuManager::onMidiChannel_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
 
+
+//////////// MIDI CC Menu Controls
 void MenuManager::onMidiCC_CW() {}
 void MenuManager::onMidiCC_CCW() {}
 void MenuManager::onMidiCC_Btn() {}
 void MenuManager::onMidiCC_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
 
+
+//////////// Calibration Menu Controls
 void MenuManager::onCalibration_CW() {}
 void MenuManager::onCalibration_CCW() {}
 void MenuManager::onCalibration_Btn() {}
 void MenuManager::onCalibration_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
 
 
-// Curve Menu
+//////////// Curve Menu Controls
 void MenuManager::onCurve_CW() {
-    // next curve
-    int c = (int)_currentCurve;
+    // advance staged selection (preview only)
+    int c = (int)_stagedCurve;
     c = (c + 1) % CURVE_COUNT;
-    _currentCurve = (CurveType)c;
-    eeprom_saveCurve((uint8_t)_currentCurve);
+    _stagedCurve = (CurveType)c;
     renderCurveMenu();
 }
 void MenuManager::onCurve_CCW() {
-    int c = (int)_currentCurve;
+    int c = (int)_stagedCurve;
     c = (c - 1 + CURVE_COUNT) % CURVE_COUNT;
-    _currentCurve = (CurveType)c;
-    eeprom_saveCurve((uint8_t)_currentCurve);
+    _stagedCurve = (CurveType)c;
     renderCurveMenu();
 }
 
@@ -487,8 +522,15 @@ int MenuManager::mapCurve(int linear) {
 int MenuManager::applyCurve(int linear) {
     return mapCurve(linear);
 }
-void MenuManager::onCurve_Btn() {}
+void MenuManager::onCurve_Btn() {
+    // Commit staged selection as active, persist it, and return to main menu
+    _currentCurve = _stagedCurve;
+    eeprom_saveCurve((uint8_t)_currentCurve);
+    _currentMenu = MENU_MAIN;
+    renderMainMenu();
+}
 void MenuManager::onCurve_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
+
 
 
 

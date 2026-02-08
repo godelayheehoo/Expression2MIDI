@@ -93,14 +93,13 @@ const float SMOOTH_ALPHA = 0.2; // smaller = smoother, larger = more responsive
 int lastMapped = -1;        // last MIDI output value
 const int DEADBAND = 1;     // ignore changes smaller than this
 
-
-
+uint8_t MIDIVal = 0;
 
 
 ///// function prototypes
 void tftStartupTest();
 
-void processPedalValue();
+uint8_t processPedalValue();
 
 // ISRs
 // void IRAM_ATTR encoderButtonISR() {
@@ -160,7 +159,7 @@ void setup() {
 
 void loop() {
     // Read raw ADC
-    processPedalValue();
+    MIDIVal = (uint8_t)processPedalValue();
     // Print values for debugging
     // Serial.print("Raw ADC: ");
     // Serial.print(raw);
@@ -197,7 +196,7 @@ void loop() {
     unsigned long now = millis();
     if ((now - lastMonitorPoll) >= MONITOR_POLL_MS) {
       lastMonitorPoll = now;
-      processPedalValue();
+      MIDIVal = (uint8_t)processPedalValue();
     }
 
     // delay(50); // ~20 Hz update, fast enough for ankle motion
@@ -258,38 +257,33 @@ void tftStartupTest() {
   tft.setTextSize(1);
 }
 
-void processPedalValue() {
-    // --- global/static variables for smoothing ---
-float smoothedNorm = 0;     // keeps track of EMA
-const float SMOOTH_ALPHA = 0.2; // smaller = smoother, larger = more responsive
-
-int lastMapped = -1;        // last MIDI output value
-const int DEADBAND = 1;     // ignore changes smaller than this
-
-// --- inside your loop / pedal read function ---
-int raw = analogRead(PEDAL_PIN);
+uint8_t processPedalValue() {
+  // Use globals defined at file scope for smoothing and deadband
+  // --- inside your loop / pedal read function ---
+  int raw = analogRead(PEDAL_PIN);
 
 // Normalize
 int norm = map(raw, pedalMin, pedalMax, 0, 1023);
 norm = constrain(norm, 0, 1023);
 
-// --- EMA smoothing ---
-smoothedNorm = SMOOTH_ALPHA * norm + (1 - SMOOTH_ALPHA) * smoothedNorm;
+  // --- EMA smoothing ---
+  smoothedNorm = SMOOTH_ALPHA * norm + (1 - SMOOTH_ALPHA) * smoothedNorm;
 
-// --- Apply curve ---
-float mappedFloat = menu.applyCurve(smoothedNorm); // still 0..1023 if your curve preserves range
+  // --- Apply curve ---
+  int mapped1023 = menu.applyCurve((int)roundf(smoothedNorm)); // 0..1023
 
-// --- Quantize to MIDI 0-127 ---
-uint8_t mapped = (uint8_t)(mappedFloat * 127 / 1023);
+  // --- Quantize to MIDI 0-127 ---
+  uint8_t mapped = (uint8_t)((mapped1023 * 127 + 511) / 1023);
 
-// --- Optional: deadband check ---
-if (lastMapped == -1 || abs(mapped - lastMapped) >= DEADBAND) {
+  // --- Optional: deadband check ---
+  if (lastMapped == -1 || abs((int)mapped - lastMapped) >= DEADBAND) {
     lastMapped = mapped;
     // send MIDI, update TFT, etc.
     Serial.print("Raw: "); Serial.print(norm);
     Serial.print(" | Mapped MIDI: "); Serial.println(mapped);
-}
+  }
 
-    menu.updateMonitor(norm, (int)mapped);
+  menu.updateMonitor(raw, (int)mapped);
 
+  return mapped;
 }

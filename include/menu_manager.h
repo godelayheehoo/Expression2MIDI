@@ -99,6 +99,8 @@ private:
     int _monitorArrowCX;
     // Active curve selection (persisted in EEPROM)
     CurveType _currentCurve;
+    // Staged curve used while previewing in the Curve menu (committed on Btn)
+    CurveType _stagedCurve;
 };
 
 // Table-driven handlers struct
