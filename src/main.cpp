@@ -5,6 +5,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7796S.h>
 #include "menu_manager.h"
+#include "../include/color_utils.h"
 #include <cstring>
 #include <ESP32Encoder.h>
 #include <pin_definitions.h>
@@ -28,8 +29,6 @@ int8_t MIDI_CHANNEL = 14; //MIDI channel 15
 
 
 //// DISPLAY SETUP
-
-
 // Create the display instance (using hardware SPI)
 Adafruit_ST7796S tft = Adafruit_ST7796S(TFT_CS, TFT_DC, TFT_RST);
 MenuManager menu;
@@ -132,9 +131,9 @@ void setup() {
     tft.init(320,480); // init(width, height) for ST7796 (typical 480x320 panel)
     tft.setRotation(0);
     Serial.print("TFT initialized");
-    tft.fillScreen(ST77XX_BLACK);
+    tft.fillScreen(COLOR_BLACK);
     tft.invertDisplay(true);
-    tftStartupTest();
+// tftStartupTest();
     
     menu.begin(&tft);
     // Render simple main menu text for now
@@ -174,6 +173,8 @@ void loop() {
     }
     if(encoderBtnHelper.isPressed()) {
         Serial.println("Encoder button pressed");
+        tftStartupTest();
+        menu.render();
     }
 
       //check encoder and pass in turns if turns!=0
@@ -191,18 +192,22 @@ void loop() {
 //// Setup Functions
 void tftStartupTest() {
   // Clear
+  Serial.println("All black screen");
   tft.fillScreen(ST77XX_BLACK);
   int16_t w = tft.width();
   int16_t h = tft.height();
+  delay(200);
 
   // Magenta square (centered)
+  Serial.println("Magenta square");
   int16_t sz = min(w, h) / 3;
   int16_t sx = (w - sz) / 2;
   int16_t sy = (h - sz) / 2;
-  tft.fillRect(sx, sy, sz, sz, ST77XX_MAGENTA);
+  tft.fillRect(sx, sy, sz, sz, COLOR_MAGENTA);
   delay(800);
 
   // Yellow triangle (centered)
+  Serial.println("Yellow triangle");
   tft.fillScreen(ST77XX_BLACK);
   int16_t tx0 = w / 2;
   int16_t ty0 = h / 2 - sz / 2;
@@ -210,18 +215,20 @@ void tftStartupTest() {
   int16_t ty1 = h / 2 + sz / 2;
   int16_t tx2 = w / 2 + sz / 2;
   int16_t ty2 = h / 2 + sz / 2;
-  tft.fillTriangle(tx0, ty0, tx1, ty1, tx2, ty2, ST77XX_YELLOW);
+  tft.fillTriangle(tx0, ty0, tx1, ty1, tx2, ty2, COLOR_YELLOW);
   delay(800);
 
   // Cyan circle (centered)
-  tft.fillScreen(ST77XX_BLACK);
+  tft.fillScreen(COLOR_BLACK);
+  Serial.println("Cyan circle");
   int16_t r = sz / 2;
-  tft.fillCircle(w / 2, h / 2, r, ST77XX_CYAN);
+  tft.fillCircle(w / 2, h / 2, r, COLOR_CYAN);
   delay(800);
 
   // Green "test!" in large text
-  tft.fillScreen(ST77XX_BLACK);
-  tft.setTextColor(ST77XX_GREEN);
+  Serial.println("Green test!");
+  tft.fillScreen(COLOR_BLACK);
+  tft.setTextColor(COLOR_GREEN);
   tft.setTextSize(4);
   const char* msg = "test!";
   int len = strlen(msg);

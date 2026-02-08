@@ -5,6 +5,7 @@
 #include <SPI.h>
 #include <Arduino.h>
 #include <cstring>
+#include "color_utils.h"
 
 // menuHandlersTable is defined at bottom of this file
 // Forward declaration so code above can reference it
@@ -49,6 +50,24 @@ void MenuManager::handleInput(InputEvent ev) {
     }
 }
 
+// Shared menu functions
+void MenuManager::drawMenuTitle(const char* title) {
+    if (!_initialized || !_tft || !title) return;
+    _tft->setTextSize(1);
+    // Use cyan text on black background
+    _tft->setTextColor(COLOR_CYAN, COLOR_BLACK);
+    int len = strlen(title);
+    int charWidth = 6 * 1;
+    int textW = charWidth * len;
+    int16_t x = _tft->width() - textW - 4;
+    int16_t y = 2;
+    if (x < 0) x = 0;
+    _tft->setCursor(x, y);
+    _tft->print(title);
+    // restore text color without background to avoid affecting later prints
+    _tft->setTextColor(COLOR_WHITE);
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////Specific Menu Stuff/////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -56,22 +75,33 @@ void MenuManager::handleInput(InputEvent ev) {
 // --- Main menu functions (handlers currently minimal/no-op) ---
 void MenuManager::renderMainMenu() {
     if (!_initialized || !_tft) return;
-
-    _tft->fillScreen(ST77XX_BLACK);
-    _tft->setTextColor(ST77XX_WHITE);
-    _tft->setTextSize(2);
+    _tft->fillScreen(COLOR_BLACK);
     _tft->setRotation(0);
-    const char* msg = "main menu";
-    int len = strlen(msg);
-    int charWidth = 6 * 2; // approx
-    int textWidth = charWidth * len;
-    int16_t x = (_tft->width() - textWidth) / 2;
-    int16_t y = (_tft->height() - (8 * 2)) / 2;
-    if (x < 0) x = 0;
-    if (y < 0) y = 0;
-    _tft->setCursor(x, y);
-    _tft->print(msg);
+    // Draw the menu title in the top-right
+    drawMenuTitle("MAIN");
+
+    // Menu options
+    const char* options[] = {
+        "Monitor Value",
+        "MIDI Channel",
+        "MIDI CC Number",
+        "Calibration",
+        "Curve"
+    };
+    const int optionCount = sizeof(options) / sizeof(options[0]);
+
+    _tft->setTextColor(COLOR_WHITE);
+    _tft->setTextSize(2);
+
+    int16_t x = 8;
+    int16_t y = 28; // start a bit below top
+    int16_t lineH = 8 * 2 + 6; // approx line height (font height * size + padding)
+    for (int i = 0; i < optionCount; ++i) {
+        _tft->setCursor(x, y + i * lineH);
+        _tft->print(options[i]);
+    }
 }
+
 
 // This selects the currently highlighted menu.  We move between highlighted items with the encoder,
 // we engage this with onMain_Btn()

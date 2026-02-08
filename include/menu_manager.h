@@ -27,6 +27,7 @@ public:
     void renderMainMenu();
     void render();
     void handleInput(InputEvent ev);
+    void drawMenuTitle(const char* title);
     // Per-menu handlers
     void onMain_CW();
     void onMain_CCW();
