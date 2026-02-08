@@ -1,0 +1,46 @@
+#include "eeprom_storage.h"
+#include <Preferences.h>
+#include <Arduino.h>
+
+static Preferences prefs;
+static const char* PREF_NS = "expr2midi";
+static const uint32_t EEPROM_MAGIC = 0x45524D32; // 'ERM2'
+static const uint8_t DEFAULT_CC = 74;
+static const int8_t DEFAULT_CHANNEL = 14;
+
+bool eeprom_init() {
+    prefs.begin(PREF_NS, false);
+    uint32_t magic = prefs.getUInt("magic", 0);
+    if (magic != EEPROM_MAGIC) {
+        // Write defaults and magic
+        prefs.putUInt("magic", EEPROM_MAGIC);
+        prefs.putUInt("cc", (uint32_t)DEFAULT_CC);
+        prefs.putUInt("chan", (uint32_t)DEFAULT_CHANNEL);
+        prefs.end();
+        return false; // defaults written
+    }
+    prefs.end();
+    return true; // existing settings present
+}
+
+uint8_t eeprom_getCC() {
+    prefs.begin(PREF_NS, true);
+    uint32_t v = prefs.getUInt("cc", (uint32_t)DEFAULT_CC);
+    prefs.end();
+    return (uint8_t)v;
+}
+
+int8_t eeprom_getChannel() {
+    prefs.begin(PREF_NS, true);
+    uint32_t v = prefs.getUInt("chan", (uint32_t)DEFAULT_CHANNEL);
+    prefs.end();
+    return (int8_t)v;
+}
+
+void eeprom_save(uint8_t cc, int8_t channel) {
+    prefs.begin(PREF_NS, false);
+    prefs.putUInt("cc", (uint32_t)cc);
+    prefs.putUInt("chan", (uint32_t)channel);
+    prefs.putUInt("magic", EEPROM_MAGIC); // ensure magic persists
+    prefs.end();
+}

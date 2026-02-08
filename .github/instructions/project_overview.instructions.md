@@ -65,7 +65,15 @@ MIDI.h (for eventual MIDI CC output)
 
 Start by reading ADC, normalize to 0–1023, print via Serial for testing
 
-TODO / Development Roadmap
+## Menu Plan
+- Main Menu
+  - Current pedal value (normalized 0-1023)
+  - Set MIDI Channel
+  - Set MIDI CC Number
+  - Access calibration routine
+  - Set curve
+
+## TODO / Development Roadmap
 
 Implement pedal calibration routine
 
