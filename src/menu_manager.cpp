@@ -388,20 +388,20 @@ void MenuManager::renderInstrumentMenu() {
         if (isSelected) {
             int16_t rectW = w - x - 8;
             _tft->fillRect(x - 4, oy - 2, rectW, lineH - 2, COLOR_WHITE);
-            _tft->setTextColor(COLOR_BLACK);
+            // If the selected row is the active instrument, show green text on white
+            if (i == _activeInstrumentIdx) {
+                _tft->setTextColor(COLOR_GREEN, COLOR_WHITE);
+            } else {
+                _tft->setTextColor(COLOR_BLACK);
+            }
         } else {
-            _tft->setTextColor(COLOR_WHITE);
+            // non-selected rows: active instrument indicated in magenta, others white
+            if (i == _activeInstrumentIdx) _tft->setTextColor(COLOR_MAGENTA, COLOR_BLACK);
+            else _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
         }
 
         // checkbox
         _tft->setCursor(x, oy);
-        _tft->print("[ ");
-
-        // instrument name color: active one in magenta, others white
-        if (!isSelected) {
-            if (i == _activeInstrumentIdx) _tft->setTextColor(COLOR_MAGENTA, COLOR_BLACK);
-            else _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
-        }
         _tft->setCursor(x + 20, oy);
         _tft->print(name);
     }
@@ -669,7 +669,7 @@ void MenuManager::onCurve_Btn() {
 }
 void MenuManager::onCurve_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
 
-//////////// Instrument Definitions Menu Controls
+//////////// Instrument Menu Definitions Menu Controls
 void MenuManager::onInstrument_CW() {
     // move selection down, update scroll window
     // compute total
@@ -701,10 +701,9 @@ void MenuManager::onInstrument_CCW() {
     renderInstrumentMenu();
 }
 void MenuManager::onInstrument_Btn() {
-    // commit active instrument and return to main
+    // commit active instrument
     _activeInstrumentIdx = _instrumentSelectedIdx;
-    _currentMenu = MENU_MAIN;
-    renderMainMenu();
+    renderInstrumentMenu();
 }
 void MenuManager::onInstrument_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
 
