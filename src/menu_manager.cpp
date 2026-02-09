@@ -40,6 +40,8 @@ MenuManager::MenuManager()
     _instrumentTopIdx = 0;
     _activeCC = 0;
     _ccSaved = false;
+    _activeChannel = 14; // default internal (0..15) matches previous globals
+    _channelSaved = false;
     _pedalMin = 0;
     _pedalMax = 4095;
     _calibSettingMax = false;
@@ -80,6 +82,12 @@ void MenuManager::begin(Adafruit_ST7796S* tft) {
     if (savedCC > 127) savedCC = 127;
     _activeCC = savedCC;
     _ccSaved = false;
+    // Load persisted MIDI channel if present
+    int8_t savedCh = (int8_t)eeprom_getChannel();
+    if (savedCh < 0) savedCh = 0;
+    if (savedCh > 15) savedCh = 15;
+    _activeChannel = savedCh;
+    _channelSaved = false;
     // Load persisted pedal calibration (if present). We don't auto-save on change here.
     _pedalMin = (int)eeprom_getPedalMin();
     _pedalMax = (int)eeprom_getPedalMax();
@@ -381,6 +389,45 @@ void MenuManager::renderMidiChannelMenu() {
     if (!_initialized || !_tft) return;
     _tft->fillScreen(COLOR_BLACK);
     drawMenuTitle("MIDI CH");
+
+    int16_t w = _tft->width();
+    int16_t h = _tft->height();
+    // show large number 1..16 centered
+    int displayNum = (int)_activeChannel + 1; // user-facing 1..16
+    char buf[8];
+    snprintf(buf, sizeof(buf), "%d", displayNum);
+    const int valueTextSize = 8; // bigger number per request
+    _tft->setTextSize(valueTextSize);
+    _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
+    int charW = 6 * valueTextSize;
+    int textW = (int)strlen(buf) * charW;
+    int textH = 8 * valueTextSize;
+    int16_t cx = (w - textW) / 2;
+    int16_t cy = (h - textH) / 2;
+    if (cx < 0) cx = 0;
+    if (cy < 0) cy = 0;
+    _tft->setCursor(cx, cy);
+    _tft->print(buf);
+
+    // small saved badge like CC menu
+    if (_channelSaved) {
+        const char* tag = "saved";
+        _tft->setTextSize(1);
+        int tagW = (int)strlen(tag) * 6;
+        int badgeW = tagW + 12;
+        int badgeH = 12;
+        int16_t bx = (w - badgeW) / 2;
+        // position badge slightly below center for larger numbers
+        int16_t by = cy + textH + 6;
+        if (bx < 0) bx = 0;
+        if (by < 0) by = 0;
+        _tft->fillRect(bx, by, badgeW, badgeH, COLOR_BLACK);
+        _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
+        _tft->setCursor(bx + (badgeW - tagW) / 2, by + 2);
+        _tft->print(tag);
+        _tft->setTextSize(valueTextSize);
+        _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
+    }
 }
 void MenuManager::renderMidiCCMenu() {
     if (!_initialized || !_tft) return;
@@ -695,10 +742,28 @@ void MenuManager::onMonitor_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); 
 
 //////////// MIDI Channel Menu Controls
 
-void MenuManager::onMidiChannel_CW() {}
-void MenuManager::onMidiChannel_CCW() {}
-void MenuManager::onMidiChannel_Btn() {}
 void MenuManager::onMidiChannel_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
+void MenuManager::onMidiChannel_CW() {
+    // advance channel 0..15
+    _activeChannel = (int8_t)((_activeChannel + 1) & 0x0F);
+    _channelSaved = false;
+    renderMidiChannelMenu();
+    Serial.print("MIDI channel -> "); Serial.println((int)_activeChannel + 1);
+}
+void MenuManager::onMidiChannel_CCW() {
+    int c = (int)_activeChannel - 1;
+    if (c < 0) c = 15;
+    _activeChannel = (int8_t)c;
+    _channelSaved = false;
+    renderMidiChannelMenu();
+    Serial.print("MIDI channel -> "); Serial.println((int)_activeChannel + 1);
+}
+void MenuManager::onMidiChannel_Btn() {
+    // persist channel to EEPROM and show saved badge
+    eeprom_saveChannel(_activeChannel);
+    _channelSaved = true;
+    renderMidiChannelMenu();
+}
 
 
 //////////// MIDI CC Menu Controls
@@ -734,6 +799,10 @@ void MenuManager::onMidiCC_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
 
 uint8_t MenuManager::getActiveCC() {
     return _activeCC;
+}
+
+int8_t MenuManager::getMidiChannel() {
+    return _activeChannel;
 }
 
 const char* MenuManager::resolveCCLabel(uint8_t cc) {
@@ -790,8 +859,7 @@ void MenuManager::onCalibration_Btn() {
         _calibSavedIsMax = false;
     }
     _calibSaved = true;
-    // Note: not persisting to EEPROM here (we added eeprom_saveCalibration earlier but
-    // choosing not to invoke it now per current instructions).
+    eeprom_saveCalibration(getPedalMin(), getPedalMax());
     renderCalibrationMenu();
 }
 void MenuManager::onCalibration_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }

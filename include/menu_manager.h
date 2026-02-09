@@ -99,6 +99,8 @@ public:
 
     // Read cached MIDI CC (0..127)
     uint8_t getActiveCC();
+    // Read active MIDI channel (0..15)
+    int8_t getMidiChannel();
     // Pedal calibration values accessors
     int getPedalMin();
     int getPedalMax();
@@ -141,8 +143,13 @@ private:
     // Pedal calibration values (raw ADC range)
     int _pedalMin;
     int _pedalMax;
+    // MIDI channel (0..15)
+    int8_t _activeChannel;
+    bool _channelSaved;
     // Calibration UI state
     bool _calibSettingMax; // false == showing "set min", true == showing "set max"
+    
+private:
     bool _calibSaved; // true when a min/max was recently saved (UI badge)
     bool _calibSavedIsMax; // which value was saved when _calibSaved is true
 };

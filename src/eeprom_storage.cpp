@@ -68,6 +68,13 @@ void eeprom_saveCC(uint8_t cc) {
     prefs.end();
 }
 
+void eeprom_saveChannel(int8_t channel) {
+    prefs.begin(PREF_NS, false);
+    prefs.putUInt("chan", (uint32_t)channel);
+    prefs.putUInt("magic", EEPROM_MAGIC);
+    prefs.end();
+}
+
 void eeprom_saveCurve(uint8_t curve) {
     prefs.begin(PREF_NS, false);
     prefs.putUChar("curve", (uint8_t)curve);

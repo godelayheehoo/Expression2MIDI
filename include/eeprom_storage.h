@@ -23,6 +23,8 @@ void eeprom_save(uint8_t cc, int8_t channel);
 
 // Save CC only (does not touch saved channel)
 void eeprom_saveCC(uint8_t cc);
+// Save channel only
+void eeprom_saveChannel(int8_t channel);
 
 // Active instrument index (0 == None)
 uint8_t eeprom_getActiveInstrument();

@@ -27,3 +27,7 @@ An instrument can be selected to have its CC meanings placed under the CC values
 ## Invert Menu
 - Toggle between `Normal` and `Inverted` behavior for the applied curve mapping using the encoder. Press the encoder button to commit the selection; the choice is persisted.
 - The menu highlights the staged selection and marks the currently persisted choice with an `[active]` tag.
+
+
+TODOS:
+normalize the formatting for "active" in highlight-selection menuslike invert and instrument definitions.  Magenta font for unhighligted but active selection, green font (on white background) for highlighted and selected option.
