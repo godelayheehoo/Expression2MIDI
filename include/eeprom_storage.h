@@ -27,3 +27,8 @@ void eeprom_saveCC(uint8_t cc);
 // Active instrument index (0 == None)
 uint8_t eeprom_getActiveInstrument();
 void eeprom_saveActiveInstrument(uint8_t idx);
+
+// Pedal calibration persistence (raw ADC min/max)
+uint16_t eeprom_getPedalMin();
+uint16_t eeprom_getPedalMax();
+void eeprom_saveCalibration(uint16_t pedMin, uint16_t pedMax);

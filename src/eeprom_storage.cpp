@@ -10,6 +10,8 @@ static const int8_t DEFAULT_CHANNEL = 14;
 static const uint8_t DEFAULT_CURVE = 0; // 0 == linear
 static const uint8_t DEFAULT_INVERT = 0; // 0 == normal
 static const uint8_t DEFAULT_ACTIVE_INSTRUMENT = 0; // 0 == None
+static const uint16_t DEFAULT_PEDAL_MIN = 0;
+static const uint16_t DEFAULT_PEDAL_MAX = 4095;
 
 bool eeprom_init() {
     prefs.begin(PREF_NS, false);
@@ -21,6 +23,8 @@ bool eeprom_init() {
         prefs.putUInt("chan", (uint32_t)DEFAULT_CHANNEL);
         prefs.putUChar("curve", (uint8_t)DEFAULT_CURVE);
         prefs.putUChar("active", (uint8_t)DEFAULT_ACTIVE_INSTRUMENT);
+        prefs.putUInt("pedMin", (uint32_t)DEFAULT_PEDAL_MIN);
+        prefs.putUInt("pedMax", (uint32_t)DEFAULT_PEDAL_MAX);
         prefs.end();
         return false; // defaults written
     }
@@ -95,6 +99,28 @@ uint8_t eeprom_getActiveInstrument() {
 void eeprom_saveActiveInstrument(uint8_t idx) {
     prefs.begin(PREF_NS, false);
     prefs.putUChar("active", (uint8_t)idx);
+    prefs.putUInt("magic", EEPROM_MAGIC);
+    prefs.end();
+}
+
+uint16_t eeprom_getPedalMin() {
+    prefs.begin(PREF_NS, true);
+    uint32_t v = prefs.getUInt("pedMin", (uint32_t)DEFAULT_PEDAL_MIN);
+    prefs.end();
+    return (uint16_t)v;
+}
+
+uint16_t eeprom_getPedalMax() {
+    prefs.begin(PREF_NS, true);
+    uint32_t v = prefs.getUInt("pedMax", (uint32_t)DEFAULT_PEDAL_MAX);
+    prefs.end();
+    return (uint16_t)v;
+}
+
+void eeprom_saveCalibration(uint16_t pedMin, uint16_t pedMax) {
+    prefs.begin(PREF_NS, false);
+    prefs.putUInt("pedMin", (uint32_t)pedMin);
+    prefs.putUInt("pedMax", (uint32_t)pedMax);
     prefs.putUInt("magic", EEPROM_MAGIC);
     prefs.end();
 }

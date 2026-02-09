@@ -11,6 +11,7 @@
 #include <climits>
 #include "curve_constants.h"
 #include "cc_definitions.h"
+#include "pin_definitions.h"
 
 // Forward declaration: curve preview helper used by `renderCurveMenu`
 // Added `active` so the preview can indicate which curve is currently active
@@ -39,6 +40,11 @@ MenuManager::MenuManager()
     _instrumentTopIdx = 0;
     _activeCC = 0;
     _ccSaved = false;
+    _pedalMin = 0;
+    _pedalMax = 4095;
+    _calibSettingMax = false;
+    _calibSaved = false;
+    _calibSavedIsMax = false;
 }
 
 void MenuManager::begin(Adafruit_ST7796S* tft) {
@@ -74,6 +80,17 @@ void MenuManager::begin(Adafruit_ST7796S* tft) {
     if (savedCC > 127) savedCC = 127;
     _activeCC = savedCC;
     _ccSaved = false;
+    // Load persisted pedal calibration (if present). We don't auto-save on change here.
+    _pedalMin = (int)eeprom_getPedalMin();
+    _pedalMax = (int)eeprom_getPedalMax();
+    if (_pedalMin < 0) _pedalMin = 0;
+    if (_pedalMax < 0) _pedalMax = 4095;
+    if (_pedalMin > 4095) _pedalMin = 0;
+    if (_pedalMax > 4095) _pedalMax = 4095;
+    // calibration UI flags
+    _calibSettingMax = false; // default: first action is to set MIN
+    _calibSaved = false;
+    _calibSavedIsMax = false;
 }
 
 void MenuManager::render() {
@@ -445,6 +462,40 @@ void MenuManager::renderCalibrationMenu() {
     if (!_initialized || !_tft) return;
     _tft->fillScreen(COLOR_BLACK);
     drawMenuTitle("CALIBRATION");
+
+    int16_t w = _tft->width();
+    int16_t h = _tft->height();
+    // Instruction text in center
+    const char* instr = _calibSettingMax ? "press encoder to set max" : "press encoder to set min";
+    _tft->setTextSize(3);
+    _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
+    int instrW = (int)strlen(instr) * 6 * 3;
+    int instrH = 8 * 3;
+    int16_t ix = (w - instrW) / 2;
+    int16_t iy = (h - instrH) / 2;
+    if (ix < 0) ix = 0;
+    if (iy < 0) iy = 0;
+    _tft->setCursor(ix, iy);
+    _tft->print(instr);
+
+    // If a value was just saved, draw a black rectangle directly over the instruction
+    if (_calibSaved) {
+        // TODO: make this time-limited (auto-clear) rather than persistent
+        const char* msg = _calibSavedIsMax ? "Max Value Saved" : "Min Value Saved";
+        _tft->setTextSize(2);
+        int msgW = (int)strlen(msg) * 6 * 2;
+        int msgH = 8 * 2 + 4;
+        int16_t mx = (w - msgW) / 2;
+        int16_t my = iy + (instrH - msgH) / 2;
+        if (mx < 0) mx = 0;
+        if (my < 0) my = 0;
+        // draw black rect over instruction (same color as background) then draw message in white
+        _tft->fillRect(mx - 4, my - 2, msgW + 8, msgH + 4, COLOR_BLACK);
+        _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
+        _tft->setCursor(mx, my + 2);
+        _tft->print(msg);
+        _tft->setTextSize(1);
+    }
 }
 void MenuManager::renderInstrumentMenu() {
     if (!_initialized || !_tft) return;
@@ -705,11 +756,44 @@ const char* MenuManager::resolveCCLabel(uint8_t cc) {
 }
 
 
+int MenuManager::getPedalMin() { return _pedalMin; }
+int MenuManager::getPedalMax() { return _pedalMax; }
+void MenuManager::setPedalMin(int v) { _pedalMin = v; }
+void MenuManager::setPedalMax(int v) { _pedalMax = v; }
+
+
 
 //////////// Calibration Menu Controls
-void MenuManager::onCalibration_CW() {}
-void MenuManager::onCalibration_CCW() {}
-void MenuManager::onCalibration_Btn() {}
+void MenuManager::onCalibration_CW() {
+    // Toggle between setting min and max
+    _calibSettingMax = !_calibSettingMax;
+    // clear any previous saved badge when toggling
+    _calibSaved = false;
+    renderCalibrationMenu();
+}
+void MenuManager::onCalibration_CCW() {
+    // Same behavior as CW: toggle between min and max
+    _calibSettingMax = !_calibSettingMax;
+    _calibSaved = false;
+    renderCalibrationMenu();
+}
+void MenuManager::onCalibration_Btn() {
+    // Read raw analog value from pedal and set as min or max depending on stage
+    int raw = analogRead(PEDAL_PIN);
+    if (raw < 0) raw = 0;
+    if (raw > 4095) raw = 4095;
+    if (_calibSettingMax) {
+        setPedalMax(raw);
+        _calibSavedIsMax = true;
+    } else {
+        setPedalMin(raw);
+        _calibSavedIsMax = false;
+    }
+    _calibSaved = true;
+    // Note: not persisting to EEPROM here (we added eeprom_saveCalibration earlier but
+    // choosing not to invoke it now per current instructions).
+    renderCalibrationMenu();
+}
 void MenuManager::onCalibration_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
 
 

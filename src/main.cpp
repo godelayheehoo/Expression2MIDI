@@ -19,9 +19,7 @@ MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 
 const int adcMax = 4095;      // 12-bit ADC on ESP32
 
-// Optional: calibration values (can be loaded from EEPROM later)
-int pedalMin = 0;
-int pedalMax = adcMax;
+// Optional: calibration values (moved into `MenuManager`)
 
 //temporary mappings (will be loaded from storage in setup)
 uint8_t CC_NUMBER = 74;
@@ -262,9 +260,23 @@ uint8_t processPedalValue() {
   // --- inside your loop / pedal read function ---
   int raw = analogRead(PEDAL_PIN);
 
-// Normalize
-int norm = map(raw, pedalMin, pedalMax, 0, 1023);
-norm = constrain(norm, 0, 1023);
+  
+  // Normalize using calibrated endpoints without swapping them.
+  // Values below the stored min are treated as the min; values above the stored max
+  // are treated as the max. If min==max we avoid division-by-zero and return 0.
+  int inMin = menu.getPedalMin();
+  int inMax = menu.getPedalMax();
+  int clamped = raw;
+  if (raw < inMin) clamped = inMin;
+  else if (raw > inMax) clamped = inMax;
+  int norm = 0;
+  if (inMax > inMin) {
+    norm = map(clamped, inMin, inMax, 0, 1023);
+  } else {
+    // Degenerate or not-yet-configured calibration: treat as lowest value
+    norm = 0;
+  }
+  norm = constrain(norm, 0, 1023);
 
   // --- EMA smoothing ---
   smoothedNorm = SMOOTH_ALPHA * norm + (1 - SMOOTH_ALPHA) * smoothedNorm;
@@ -283,7 +295,7 @@ norm = constrain(norm, 0, 1023);
     // Serial.print(" | Mapped MIDI: "); Serial.println(mapped);
   }
 
-  menu.updateMonitor(raw, (int)mapped);
+  menu.updateMonitor(clamped, (int)mapped);
 
   return mapped;
 }

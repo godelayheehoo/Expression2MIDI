@@ -99,6 +99,11 @@ public:
 
     // Read cached MIDI CC (0..127)
     uint8_t getActiveCC();
+    // Pedal calibration values accessors
+    int getPedalMin();
+    int getPedalMax();
+    void setPedalMin(int v);
+    void setPedalMax(int v);
     
 private:
     // Resolve a CC label for the active instrument, or return nullptr
@@ -133,6 +138,13 @@ private:
     uint8_t _activeCC;
     // Flag set when CC value was saved by encoder button (controls saved badge)
     bool _ccSaved;
+    // Pedal calibration values (raw ADC range)
+    int _pedalMin;
+    int _pedalMax;
+    // Calibration UI state
+    bool _calibSettingMax; // false == showing "set min", true == showing "set max"
+    bool _calibSaved; // true when a min/max was recently saved (UI badge)
+    bool _calibSavedIsMax; // which value was saved when _calibSaved is true
 };
 
 // (No standalone getter; use MenuManager::getActiveCC())
