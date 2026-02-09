@@ -20,3 +20,10 @@ void eeprom_saveInvert(uint8_t inverted);
 
 // Save values to storage
 void eeprom_save(uint8_t cc, int8_t channel);
+
+// Save CC only (does not touch saved channel)
+void eeprom_saveCC(uint8_t cc);
+
+// Active instrument index (0 == None)
+uint8_t eeprom_getActiveInstrument();
+void eeprom_saveActiveInstrument(uint8_t idx);

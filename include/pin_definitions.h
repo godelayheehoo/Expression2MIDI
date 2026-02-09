@@ -17,4 +17,4 @@
 
 // --- Other pins ---
 #define PEDAL_PIN  32     // ADC input connected to Tip of TRS
-#define AUX_BUTTON_PIN 12     // GPIO pin connected to save button. NOTE: uses external pullup as well, as this is meant for 5V
+#define AUX_BUTTON_PIN 12        // GPIO pin connected to save button. NOTE: uses external pullup as well, as this is meant for 5V

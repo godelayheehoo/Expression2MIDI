@@ -9,6 +9,7 @@ static const uint8_t DEFAULT_CC = 74;
 static const int8_t DEFAULT_CHANNEL = 14;
 static const uint8_t DEFAULT_CURVE = 0; // 0 == linear
 static const uint8_t DEFAULT_INVERT = 0; // 0 == normal
+static const uint8_t DEFAULT_ACTIVE_INSTRUMENT = 0; // 0 == None
 
 bool eeprom_init() {
     prefs.begin(PREF_NS, false);
@@ -19,6 +20,7 @@ bool eeprom_init() {
         prefs.putUInt("cc", (uint32_t)DEFAULT_CC);
         prefs.putUInt("chan", (uint32_t)DEFAULT_CHANNEL);
         prefs.putUChar("curve", (uint8_t)DEFAULT_CURVE);
+        prefs.putUChar("active", (uint8_t)DEFAULT_ACTIVE_INSTRUMENT);
         prefs.end();
         return false; // defaults written
     }
@@ -55,6 +57,13 @@ void eeprom_save(uint8_t cc, int8_t channel) {
     prefs.end();
 }
 
+void eeprom_saveCC(uint8_t cc) {
+    prefs.begin(PREF_NS, false);
+    prefs.putUInt("cc", (uint32_t)cc);
+    prefs.putUInt("magic", EEPROM_MAGIC);
+    prefs.end();
+}
+
 void eeprom_saveCurve(uint8_t curve) {
     prefs.begin(PREF_NS, false);
     prefs.putUChar("curve", (uint8_t)curve);
@@ -72,6 +81,20 @@ uint8_t eeprom_getInvert() {
 void eeprom_saveInvert(uint8_t inverted) {
     prefs.begin(PREF_NS, false);
     prefs.putUChar("invert", (uint8_t)inverted);
+    prefs.putUInt("magic", EEPROM_MAGIC);
+    prefs.end();
+}
+
+uint8_t eeprom_getActiveInstrument() {
+    prefs.begin(PREF_NS, true);
+    uint8_t v = prefs.getUChar("active", DEFAULT_ACTIVE_INSTRUMENT);
+    prefs.end();
+    return v;
+}
+
+void eeprom_saveActiveInstrument(uint8_t idx) {
+    prefs.begin(PREF_NS, false);
+    prefs.putUChar("active", (uint8_t)idx);
     prefs.putUInt("magic", EEPROM_MAGIC);
     prefs.end();
 }

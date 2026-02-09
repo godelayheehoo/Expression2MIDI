@@ -97,6 +97,13 @@ public:
     void onInvert_Btn();
     void onInvert_Aux();
 
+    // Read cached MIDI CC (0..127)
+    uint8_t getActiveCC();
+    
+private:
+    // Resolve a CC label for the active instrument, or return nullptr
+    const char* resolveCCLabel(uint8_t cc);
+
 private:
     // Apply currently selected curve to a linear 0..1023 input
     int mapCurve(int linear);
@@ -122,7 +129,13 @@ private:
     int _activeInstrumentIdx; // index into allInstruments array, 0 == None
     int _instrumentSelectedIdx; // currently highlighted index in the menu
     int _instrumentTopIdx; // top visible index for scrolling
+    // Cached MIDI CC number (0..127) to avoid reading EEPROM frequently
+    uint8_t _activeCC;
+    // Flag set when CC value was saved by encoder button (controls saved badge)
+    bool _ccSaved;
 };
+
+// (No standalone getter; use MenuManager::getActiveCC())
 
 // Table-driven handlers struct
 struct MenuHandlers {

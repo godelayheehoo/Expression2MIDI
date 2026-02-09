@@ -37,6 +37,8 @@ MenuManager::MenuManager()
     _activeInstrumentIdx = 0;
     _instrumentSelectedIdx = 0;
     _instrumentTopIdx = 0;
+    _activeCC = 0;
+    _ccSaved = false;
 }
 
 void MenuManager::begin(Adafruit_ST7796S* tft) {
@@ -52,6 +54,26 @@ void MenuManager::begin(Adafruit_ST7796S* tft) {
     uint8_t inv = eeprom_getInvert();
     _inverted = (inv != 0);
     _invertSelectedIdx = _inverted ? 1 : 0;
+    // Load persisted active instrument (0 == None) and clamp against current list
+    uint8_t ai = eeprom_getActiveInstrument();
+    // Count instruments using sentinel
+    int total = 0;
+    for (const InstrumentCCs* p = allInstruments; p && p->name; ++p) ++total;
+    if (total <= 0) {
+        _activeInstrumentIdx = 0;
+        _instrumentSelectedIdx = 0;
+        _instrumentTopIdx = 0;
+    } else {
+        if ((int)ai >= total) ai = 0; // reset to None if stored index out-of-range
+        _activeInstrumentIdx = (int)ai;
+        _instrumentSelectedIdx = _activeInstrumentIdx;
+        _instrumentTopIdx = 0;
+    }
+    // Load cached CC once to avoid repeated EEPROM reads
+    uint8_t savedCC = eeprom_getCC();
+    if (savedCC > 127) savedCC = 127;
+    _activeCC = savedCC;
+    _ccSaved = false;
 }
 
 void MenuManager::render() {
@@ -347,6 +369,77 @@ void MenuManager::renderMidiCCMenu() {
     if (!_initialized || !_tft) return;
     _tft->fillScreen(COLOR_BLACK);
     drawMenuTitle("MIDI CC");
+    
+        int16_t w = _tft->width();
+        int16_t h = _tft->height();
+    
+        // Left: active instrument name at same height/font as title
+        const char* instName = "";
+        if (_activeInstrumentIdx >= 0) {
+            const InstrumentCCs* inst = &allInstruments[_activeInstrumentIdx];
+            if (inst && inst->name) instName = inst->name;
+        }
+        _tft->setTextSize(1);
+        _tft->setTextColor(COLOR_MAGENTA, COLOR_BLACK);
+        _tft->setCursor(8, 2);
+        _tft->print(instName);
+        _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
+    
+        // Center: large CC number (0..127) using cached value
+        uint8_t ccVal = _activeCC;
+        if (ccVal > 127) ccVal = 127;
+        char ccbuf[8];
+        snprintf(ccbuf, sizeof(ccbuf), "%u", (unsigned)ccVal);
+        const int valueTextSize = 6; // large display
+        _tft->setTextSize(valueTextSize);
+        _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
+        int charW = 6 * valueTextSize;
+        int textW = (int)strlen(ccbuf) * charW;
+        int textH = 8 * valueTextSize;
+        int16_t cx = (w - textW) / 2;
+        int16_t cy = (h - textH) / 2 - 10; // leave room for label below
+        if (cx < 0) cx = 0;
+        if (cy < 0) cy = 0;
+        _tft->setCursor(cx, cy);
+        _tft->print(ccbuf);
+
+        // If recently saved, draw a small badge over the number that says "saved"
+        if (_ccSaved) {
+            const char* tag = "saved";
+            _tft->setTextSize(1);
+            int tagW = (int)strlen(tag) * 6;
+            int badgeW = tagW + 12;
+            int badgeH = 12;
+            int16_t bx = (w - badgeW) / 2;
+            int16_t by = cy + (textH / 2) - (badgeH / 2);
+            if (bx < 0) bx = 0;
+            if (by < 0) by = 0;
+            // draw black rectangle (text will be white)
+            _tft->fillRect(bx, by, badgeW, badgeH, COLOR_BLACK);
+            _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
+            _tft->setCursor(bx + (badgeW - tagW) / 2, by + 2);
+            _tft->print(tag);
+            _tft->setTextSize(valueTextSize);
+            _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
+        }
+    
+        // Under the number: optional CC label from the active instrument mapping
+        const char* label = resolveCCLabel(_activeCC);
+        if (label) {
+            Serial.print("Trying to print label: ");
+            Serial.println(label);
+            _tft->setTextSize(2);
+            _tft->setTextColor(COLOR_CYAN, COLOR_BLACK);
+            int labW = strlen(label) * 6 * 2;
+            int16_t lx = (w - labW) / 2;
+            int16_t ly = cy + textH + 6;
+            if (lx < 0) lx = 0;
+            if (ly + 8 > h) ly = h - 8;
+            _tft->setCursor(lx, ly);
+            _tft->print(label);
+            _tft->setTextSize(1);
+            _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
+        }
 }
 void MenuManager::renderCalibrationMenu() {
     if (!_initialized || !_tft) return;
@@ -558,10 +651,59 @@ void MenuManager::onMidiChannel_Aux() { _currentMenu = MENU_MAIN; renderMainMenu
 
 
 //////////// MIDI CC Menu Controls
-void MenuManager::onMidiCC_CW() {}
-void MenuManager::onMidiCC_CCW() {}
-void MenuManager::onMidiCC_Btn() {}
+void MenuManager::onMidiCC_CW() {
+    // increase cached CC, wrap at 127 -> 0; do NOT persist until button pressed
+    _activeCC = (uint8_t)((_activeCC + 1) % 128);
+    _ccSaved = false;
+    renderMidiCCMenu();
+    // Debug: print CC and resolved label
+    const char* dbgLabel = resolveCCLabel(_activeCC);
+    Serial.print("CC turn CW -> "); Serial.print(_activeCC); Serial.print(" : "); Serial.println(dbgLabel ? dbgLabel : "<none>");
+}
+void MenuManager::onMidiCC_CCW() {
+    // decrease cached CC, wrap at 0 -> 127; do NOT persist until button pressed
+    int next = (int)_activeCC - 1;
+    if (next < 0) next += 128;
+    _activeCC = (uint8_t)next;
+    _ccSaved = false;
+    renderMidiCCMenu();
+    // Debug: print CC and resolved label
+    const char* dbgLabel2 = resolveCCLabel(_activeCC);
+    Serial.print("CC turn CCW -> "); Serial.print(_activeCC); Serial.print(" : "); Serial.println(dbgLabel2 ? dbgLabel2 : "<none>");
+}
+void MenuManager::onMidiCC_Btn() {
+    // Commit/save current CC to EEPROM and show saved badge
+    eeprom_saveCC(_activeCC);
+    _ccSaved = true;
+    renderMidiCCMenu();
+    //todo: this is dumb. We don't need to redraw the whole menu, we're just adding the label
+    //on top of what's already there.
+}
 void MenuManager::onMidiCC_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
+
+uint8_t MenuManager::getActiveCC() {
+    return _activeCC;
+}
+
+const char* MenuManager::resolveCCLabel(uint8_t cc) {
+    if (_activeInstrumentIdx < 0) return nullptr;
+    const InstrumentCCs* inst = &allInstruments[_activeInstrumentIdx];
+    if (!inst) return nullptr;
+    const CCLabel* arr = inst->ccArray;
+    if (!arr) return nullptr;
+    bool seenAny = false;
+    for (const CCLabel* p = arr; p; ++p) {
+        if (p->cc == 0 && p->label == nullptr) {
+            if (seenAny) break; // second sentinel -> end
+            seenAny = true;
+            continue;
+        }
+        seenAny = true;
+        if (p->cc == cc) return p->label;
+    }
+    return nullptr;
+}
+
 
 
 //////////// Calibration Menu Controls
@@ -703,6 +845,7 @@ void MenuManager::onInstrument_CCW() {
 void MenuManager::onInstrument_Btn() {
     // commit active instrument
     _activeInstrumentIdx = _instrumentSelectedIdx;
+    eeprom_saveActiveInstrument((uint8_t)_activeInstrumentIdx);
     renderInstrumentMenu();
 }
 void MenuManager::onInstrument_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }

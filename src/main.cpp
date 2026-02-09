@@ -279,8 +279,8 @@ norm = constrain(norm, 0, 1023);
   if (lastMapped == -1 || abs((int)mapped - lastMapped) >= DEADBAND) {
     lastMapped = mapped;
     // send MIDI, update TFT, etc.
-    Serial.print("Raw: "); Serial.print(norm);
-    Serial.print(" | Mapped MIDI: "); Serial.println(mapped);
+    // Serial.print("Raw: "); Serial.print(norm);
+    // Serial.print(" | Mapped MIDI: "); Serial.println(mapped);
   }
 
   menu.updateMonitor(raw, (int)mapped);
