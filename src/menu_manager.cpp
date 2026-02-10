@@ -40,7 +40,7 @@ MenuManager::MenuManager()
     _instrumentTopIdx = 0;
     _activeCC = 0;
     _ccSaved = false;
-    _activeChannel = 14; // default internal (0..15) matches previous globals
+    _activeChannel = 15; // store channels 1..16 internally (1-indexed)
     _channelSaved = false;
     _pedalMin = 0;
     _pedalMax = 4095;
@@ -84,8 +84,8 @@ void MenuManager::begin(Adafruit_ST7796S* tft) {
     _ccSaved = false;
     // Load persisted MIDI channel if present
     int8_t savedCh = (int8_t)eeprom_getChannel();
-    if (savedCh < 0) savedCh = 0;
-    if (savedCh > 15) savedCh = 15;
+    if (savedCh < 1) savedCh = 1;
+    if (savedCh > 16) savedCh = 16;
     _activeChannel = savedCh;
     _channelSaved = false;
     // Load persisted pedal calibration (if present). We don't auto-save on change here.
@@ -393,7 +393,7 @@ void MenuManager::renderMidiChannelMenu() {
     int16_t w = _tft->width();
     int16_t h = _tft->height();
     // show large number 1..16 centered
-    int displayNum = (int)_activeChannel + 1; // user-facing 1..16
+    int displayNum = (int)_activeChannel; // user-facing 1..16 (stored 1..16)
     char buf[8];
     snprintf(buf, sizeof(buf), "%d", displayNum);
     const int valueTextSize = 8; // bigger number per request
@@ -744,19 +744,20 @@ void MenuManager::onMonitor_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); 
 
 void MenuManager::onMidiChannel_Aux() { _currentMenu = MENU_MAIN; renderMainMenu(); }
 void MenuManager::onMidiChannel_CW() {
-    // advance channel 0..15
-    _activeChannel = (int8_t)((_activeChannel + 1) & 0x0F);
+    // advance channel 1..16
+    _activeChannel = (int8_t)(_activeChannel + 1);
+    if (_activeChannel > 16) _activeChannel = 1;
     _channelSaved = false;
     renderMidiChannelMenu();
     Serial.print("MIDI channel -> "); Serial.println((int)_activeChannel + 1);
 }
 void MenuManager::onMidiChannel_CCW() {
     int c = (int)_activeChannel - 1;
-    if (c < 0) c = 15;
+    if (c < 1) c = 16;
     _activeChannel = (int8_t)c;
     _channelSaved = false;
     renderMidiChannelMenu();
-    Serial.print("MIDI channel -> "); Serial.println((int)_activeChannel + 1);
+    Serial.print("MIDI channel -> "); Serial.println((int)_activeChannel);
 }
 void MenuManager::onMidiChannel_Btn() {
     // persist channel to EEPROM and show saved badge

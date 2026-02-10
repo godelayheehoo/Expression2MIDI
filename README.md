@@ -1,33 +1,93 @@
 
 
 
-## Curve Menu:
-Turn the encoder to scroll through available curves. Click the encoder to select (and autosave) the selected curve.  Aux button returns to main menu.
+## Expression2MIDI — Overview
+Small ESP32 firmware that reads an expression pedal (analog TRS), maps the pedal position through selectable curves, and sends MIDI Control Change (CC) messages over a UART TX pin (31250 baud). Targets an SPI TFT for configuration and a clickable rotary encoder for UI.
 
-## MIDI CC Definition files
-An instrument can be selected to have its CC meanings placed under the CC values when scrolling through them. These are generated using xmls derived from what's offered by midi.guide. They can be generated using `process_files.py`.  See the readme in `ccSources` for more information.
+## Table of contents
+- Overview
+- Quick Start
+- Dependencies
+- Hardware & Wiring
+- Pin mapping & TFT orientation
+- Regenerating CC definitions
+- Usage / UI cheat-sheet
+- Calibration & units
+- Examples & testing
+- Troubleshooting
+- Persistence / EEPROM
+- Contributing
 
-## MIDI CC Menu (how it works)
-- The top-left of the `MIDI CC` menu shows the currently active instrument in magenta ("None" if no instrument is active).
-- The center of the screen displays a large MIDI CC number (0–127). Turn the encoder CW/CCW to change the CC number (it wraps 0↔127).
-- Under the number the UI will show a textual label for the CC if the active instrument provides one.
-- Changes are only written to persistent storage when you press the encoder button; press the encoder to save the current CC. When saved, the UI draws a small "saved" badge over the CC number.
-- Instrument CC mappings are supplied by the generated header `include/cc_definitions.h`. Run `python ccSources/process_files.py` to regenerate `cc_definitions.h` from the XMLs in `ccSources/` whenever you add or update instrument files.
+## Quick Start
+Build and upload with PlatformIO (project root contains `platformio.ini`):
 
-## Monitor Menu
-- Shows the current raw ADC reading (big, yellow) and the mapped MIDI value (magenta) produced by the selected curve and mapping. A horizontal progress bar near the bottom visualizes the 0–127 MIDI range.
-- The Monitor view is intended for live feedback while moving the pedal; it updates at a short poll interval and avoids redrawing large static elements unnecessarily.
-- Shortcut: from the main menu you can immediately jump to the Monitor view by pressing the back/aux button.
+```bash
+platformio run --target upload
+```
 
-## Instrument Definitions Menu
-- Lists instruments discovered in `include/cc_definitions.h` (generated from `ccSources/`). The list always starts with `"None"` to indicate no instrument is active.
-- Use the encoder to highlight an instrument and press the encoder button to make it the active instrument; the active instrument index is persisted to storage.
-- When an instrument is active, its CC label mappings are used by the `MIDI CC` menu to show human-readable names under CC numbers.
+Open serial monitor for logs:
 
-## Invert Menu
-- Toggle between `Normal` and `Inverted` behavior for the applied curve mapping using the encoder. Press the encoder button to commit the selection; the choice is persisted.
-- The menu highlights the staged selection and marks the currently persisted choice with an `[active]` tag.
+```bash
+platformio device monitor --port COMx --baud 115200
+```
 
+Replace `COMx` with your Windows COM port. After flashing, use the encoder and Aux button to navigate the menus and the Monitor view to validate pedal readings.
 
-TODOS:
-normalize the formatting for "active" in highlight-selection menuslike invert and instrument definitions.  Magenta font for unhighligted but active selection, green font (on white background) for highlighted and selected option.
+## Dependencies
+This project uses the following Arduino/PlatformIO libraries (see `lib_deps` in `platformio.ini`):
+- FortySevenEffects `MIDI` (hardware MIDI)
+- `Adafruit_GFX`
+- `Adafruit_ST7796S` (display driver used here)
+- `ESP32Encoder`
+- `SPI` (Arduino core)
+
+Install via PlatformIO `lib_deps` or the Library Manager.
+
+## Hardware & Wiring
+- Expression pedal (TRS): Tip → `PEDAL_PIN` (ADC input), Ring → 3.3V, Sleeve → GND.
+- MIDI DIN/TX: TTL MIDI is sent on the configured `MIDI_TX_PIN` (see `include/pin_definitions.h`). The board uses `Serial1` at 31250 baud.
+- Encoder: standard A/B pins + push switch (pins in `include/pin_definitions.h`).
+- TFT: SPI pins plus `TFT_CS`, `TFT_DC`, `TFT_RST` defined in `include/pin_definitions.h`.
+
+See `include/pin_definitions.h` for the specific pin names used in this build: [include/pin_definitions.h](include/pin_definitions.h).
+
+## Pin mapping & TFT orientation
+- Default TFT initialization happens in `src/main.cpp` (`tft.init(320,480)` and `tft.setRotation(0)`). Adjust rotation or width/height there if your panel is oriented differently.
+
+## Regenerating CC definitions
+CC label mappings are generated from XMLs in `ccSources/`. To regenerate the header used by the firmware:
+
+```bash
+python ccSources/process_files.py
+```
+
+This writes/updates `include/cc_definitions.h`. See `ccSources/README.md` for details about the XML sources. 
+
+## Usage / UI cheat-sheet
+- Turn encoder CW/CCW: move selection or change numeric values.
+- Press encoder: select / save current value in many menus (e.g. save CC number).
+- Aux/back button: Return to main menu. On the main menu, this is a quick shortcut to enter monitor view.
+- Monitor: shows raw (calibrated) ADC (0–4095) and mapped MIDI value (0–127). Use it while moving the pedal.
+- Calibration: set MIN then MAX values in the Calibration menu and save to persist to EEPROM.
+
+## Calibration & units
+- ADC range on ESP32: 0–4095 (12-bit). The firmware normalizes reads to 0–1023 internally, then maps to MIDI 0–127.
+- Calibration stores pedal `min` and `max` to EEPROM and uses those endpoints for normalization. Use the Calibration menu to set and save values.
+
+## Examples & testing
+Quick serial debug and platformio monitor commands are above. To verify MIDI output you can use a MIDI DIN→USB interface or a hardware synth that listens on the DIN cable. If using a PC, tools like `MIDI-OX` (Windows) or `Midi Monitor` (macOS) will show incoming CC messages.
+
+## Troubleshooting
+- No MIDI output: verify `MIDI_TX_PIN` in `include/pin_definitions.h` and that the DIN wiring matches the MIDI device. `Serial1` is configured at 31250 baud.
+- Unexpected ADC range: re-check TRS wiring (Tip=ADC, Ring=3.3V, Sleeve=GND).
+- TFT blank/flicker: confirm SPI pins and `tft.init()` parameters and rotation.
+- Encoder jitter: ensure encoder pins are set with pull-ups (code enables `INPUT_PULLUP` and uses `ESP32Encoder` internal pull-ups).
+
+## Persistence / EEPROM
+Settings persisted to EEPROM include selected curve, invert flag, active instrument index, MIDI CC, MIDI channel, and calibration endpoints. Default values are initialized in `src/main.cpp` (e.g. `CC_NUMBER = 74`, `MIDI_CHANNEL = 2`) and in `MenuManager` defaults; stored values overwrite them at startup.
+
+----
+
+This was a tool meant to accompish a specific want of mine, so I may not develop it much more on my own as it fulfills that goal.  That said, I'm happy to help with it or do more work on it if you have a feature idea, feel free to open one up.  
+
+Do not spend $200 or whatever insane price they're charging to do this.  This project is easy to do, is **way** cheaper, and is more powerful than anything on the market that I've seen.

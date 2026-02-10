@@ -6,7 +6,7 @@ static Preferences prefs;
 static const char* PREF_NS = "expr2midi";
 static const uint32_t EEPROM_MAGIC = 0x45524D32; // 'ERM2'
 static const uint8_t DEFAULT_CC = 74;
-static const int8_t DEFAULT_CHANNEL = 14;
+static const int8_t DEFAULT_CHANNEL = 15;
 static const uint8_t DEFAULT_CURVE = 0; // 0 == linear
 static const uint8_t DEFAULT_INVERT = 0; // 0 == normal
 static const uint8_t DEFAULT_ACTIVE_INSTRUMENT = 0; // 0 == None

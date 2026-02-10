@@ -13,7 +13,7 @@
 #define TFT_SCLK 18 
 
 // --- MIDI pins ---
-#define MIDI_TX_PIN 17 // change to your desired TX pin
+#define MIDI_TX_PIN 10 // change to your desired TX pin
 
 // --- Other pins ---
 #define PEDAL_PIN  32     // ADC input connected to Tip of TRS

@@ -23,7 +23,7 @@ const int adcMax = 4095;      // 12-bit ADC on ESP32
 
 //temporary mappings (will be loaded from storage in setup)
 uint8_t CC_NUMBER = 74;
-int8_t MIDI_CHANNEL = 14; //MIDI channel 15
+int8_t MIDI_CHANNEL = 2; // MIDI channel (1..16)
 
 
 //// DISPLAY SETUP
@@ -92,6 +92,7 @@ int lastMapped = -1;        // last MIDI output value
 const int DEADBAND = 1;     // ignore changes smaller than this
 
 uint8_t MIDIVal = 0;
+uint8_t lastMIDIVal = 0;
 
 
 ///// function prototypes
@@ -124,7 +125,7 @@ void setup() {
     // Load saved CC and channel
     CC_NUMBER = eeprom_getCC();
     MIDI_CHANNEL = eeprom_getChannel();
-    Serial.print("MIDI CC:"); Serial.print(CC_NUMBER); Serial.print("  Channel:"); Serial.println(MIDI_CHANNEL + 1);
+    Serial.print("MIDI CC:"); Serial.print(CC_NUMBER); Serial.print("  Channel:"); Serial.println(MIDI_CHANNEL);
     // Initialize UART for MIDI transmission (TX-only)
     // MIDI baud rate is 31250, provide -1 for RX when unused
     Serial1.begin(31250, SERIAL_8N1, -1, MIDI_TX_PIN);
@@ -156,6 +157,23 @@ void setup() {
 }
 
 void loop() {
+
+  //debug inner loop -- loop endlessly, sending a MIDI middle C note every half second Serial.println("Starting debug note loop...");
+   while (auxButtonHelper.isPressed()&&encoderBtnHelper.isPressed() ) { 
+    Serial.println(">>>>>> Sending a note..."); MIDI.sendNoteOn(60, 127, 15); // Note on, middle C, full velocity 
+    delay(500); 
+    MIDI.sendNoteOff(60, 0, 15); // Note off, middle C
+     delay(500);
+     // step through MIDI CC values on CC#74 for testing, 10 ms delay between steps
+    for (int val = 0; val <= 127; val++) {
+        MIDI.sendControlChange(74, val, 15);
+        Serial.print("Sent CC#74 value: ");
+        Serial.println(val);
+        delay(10);
+     }
+    }
+
+
     // Read raw ADC
     MIDIVal = (uint8_t)processPedalValue();
     // Print values for debugging
@@ -195,6 +213,17 @@ void loop() {
     if ((now - lastMonitorPoll) >= MONITOR_POLL_MS) {
       lastMonitorPoll = now;
       MIDIVal = (uint8_t)processPedalValue();
+      if((lastMIDIVal!=MIDIVal)){
+        Serial.print("Sending MIDI CC ");
+        Serial.print(menu.getActiveCC());
+        Serial.print(" Value: ");
+        Serial.print(MIDIVal);
+        Serial.print("on channel:");
+        Serial.println(menu.getMidiChannel());
+        //send midi only if value changed
+        MIDI.sendControlChange(menu.getActiveCC(), MIDIVal, menu.getMidiChannel());
+        lastMIDIVal = MIDIVal;
+      }
     }
 
     // delay(50); // ~20 Hz update, fast enough for ankle motion
