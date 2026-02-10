@@ -9,6 +9,8 @@
 #include <cstring>
 #include <ESP32Encoder.h>
 #include <pin_definitions.h>
+#include <esp_wifi.h>
+#include <esp_bt.h>
 
 
 // --- MIDI (FortySevenEffects) ---
@@ -108,6 +110,15 @@ uint8_t processPedalValue();
 
 void setup() {
     Serial.begin(115200);
+
+    //explicitly shutdown wireless stuff
+    esp_wifi_stop();
+    esp_wifi_deinit();
+
+    btStop();                // classic BT
+    esp_bt_controller_disable();
+    
+    //
     analogReadResolution(12);  // ESP32 default: 12-bit ADC (0-4095)
     analogSetAttenuation(ADC_11db);  // Set ADC attenuation to 11dB for full-scale voltage
     Serial.println("ESP32 Expression Pedal Test");
