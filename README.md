@@ -91,3 +91,16 @@ Settings persisted to EEPROM include selected curve, invert flag, active instrum
 This was a tool meant to accompish a specific want of mine, so I may not develop it much more on my own as it fulfills that goal.  That said, I'm happy to help with it or do more work on it if you have a feature idea, feel free to open one up.  
 
 Do not spend $200 or whatever insane price they're charging to do this.  This project is easy to do, is **way** cheaper, and is more powerful than anything on the market that I've seen.
+
+Here's some pictures:
+
+**Images**
+
+![IMG_2576](img/IMG_2576.jpg)
+
+![IMG_2583](img/IMG_2583.jpg)
+
+![IMG_2611](img/IMG_2611.jpg)
+
+![IMG_2612](img/IMG_2612.jpg)
+

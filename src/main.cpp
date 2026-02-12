@@ -170,19 +170,19 @@ void setup() {
 void loop() {
 
   //debug inner loop -- loop endlessly, sending a MIDI middle C note every half second Serial.println("Starting debug note loop...");
-   while (auxButtonHelper.isPressed()&&encoderBtnHelper.isPressed() ) { 
-    Serial.println(">>>>>> Sending a note..."); MIDI.sendNoteOn(60, 127, 15); // Note on, middle C, full velocity 
-    delay(500); 
-    MIDI.sendNoteOff(60, 0, 15); // Note off, middle C
-     delay(500);
-     // step through MIDI CC values on CC#74 for testing, 10 ms delay between steps
-    for (int val = 0; val <= 127; val++) {
-        MIDI.sendControlChange(74, val, 15);
-        Serial.print("Sent CC#74 value: ");
-        Serial.println(val);
-        delay(10);
-     }
-    }
+  //  while (auxButtonHelper.isPressed()&&encoderBtnHelper.isPressed() ) { 
+  //   Serial.println(">>>>>> Sending a note..."); MIDI.sendNoteOn(60, 127, 15); // Note on, middle C, full velocity 
+  //   delay(500); 
+  //   MIDI.sendNoteOff(60, 0, 15); // Note off, middle C
+  //    delay(500);
+  //    // step through MIDI CC values on CC#74 for testing, 10 ms delay between steps
+  //   for (int val = 0; val <= 127; val++) {
+  //       MIDI.sendControlChange(74, val, 15);
+  //       Serial.print("Sent CC#74 value: ");
+  //       Serial.println(val);
+  //       delay(10);
+  //    }
+  //   }
 
 
     // Read raw ADC
