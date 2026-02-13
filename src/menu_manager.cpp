@@ -39,6 +39,7 @@ MenuManager::MenuManager()
     _instrumentSelectedIdx = 0;
     _instrumentTopIdx = 0;
     _activeCC = 0;
+    _selectedCC = 0;
     _ccSaved = false;
     _activeChannel = 15; // store channels 1..16 internally (1-indexed)
     _channelSaved = false;
@@ -81,6 +82,7 @@ void MenuManager::begin(Adafruit_ST7796S* tft) {
     uint8_t savedCC = eeprom_getCC();
     if (savedCC > 127) savedCC = 127;
     _activeCC = savedCC;
+    _selectedCC = savedCC;
     _ccSaved = false;
     // Load persisted MIDI channel if present
     int8_t savedCh = (int8_t)eeprom_getChannel();
@@ -449,8 +451,8 @@ void MenuManager::renderMidiCCMenu() {
         _tft->print(instName);
         _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
     
-        // Center: large CC number (0..127) using cached value
-        uint8_t ccVal = _activeCC;
+        // Center: large CC number (0..127) using selected value
+        uint8_t ccVal = _selectedCC;
         if (ccVal > 127) ccVal = 127;
         char ccbuf[8];
         snprintf(ccbuf, sizeof(ccbuf), "%u", (unsigned)ccVal);
@@ -487,8 +489,21 @@ void MenuManager::renderMidiCCMenu() {
             _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
         }
     
-        // Under the number: optional CC label from the active instrument mapping
-        const char* label = resolveCCLabel(_activeCC);
+        // If the selected CC is the same as the active CC, show [active] above the number
+        if (_selectedCC == _activeCC) {
+            _tft->setTextSize(1);
+            _tft->setTextColor(COLOR_YELLOW, COLOR_BLACK);
+            int16_t ax = cx;
+            int16_t ay = cy - 14;
+            if (ay < 0) ay = 0;
+            _tft->setCursor(ax, ay);
+            _tft->print("[active]");
+            _tft->setTextSize(valueTextSize);
+            _tft->setTextColor(COLOR_WHITE, COLOR_BLACK);
+        }
+
+        // Under the number: optional CC label from the active instrument mapping (for selected CC)
+        const char* label = resolveCCLabel(_selectedCC);
         if (label) {
             Serial.print("Trying to print label: ");
             Serial.println(label);
@@ -769,27 +784,28 @@ void MenuManager::onMidiChannel_Btn() {
 
 //////////// MIDI CC Menu Controls
 void MenuManager::onMidiCC_CW() {
-    // increase cached CC, wrap at 127 -> 0; do NOT persist until button pressed
-    _activeCC = (uint8_t)((_activeCC + 1) % 128);
+    // advance selected CC (0..127); do not persist until button pressed
+    _selectedCC = (uint8_t)((_selectedCC + 1) % 128);
     _ccSaved = false;
     renderMidiCCMenu();
-    // Debug: print CC and resolved label
-    const char* dbgLabel = resolveCCLabel(_activeCC);
-    Serial.print("CC turn CW -> "); Serial.print(_activeCC); Serial.print(" : "); Serial.println(dbgLabel ? dbgLabel : "<none>");
+    // Debug: print selected CC and resolved label
+    const char* dbgLabel = resolveCCLabel(_selectedCC);
+    Serial.print("CC turn CW -> "); Serial.print(_selectedCC); Serial.print(" : "); Serial.println(dbgLabel ? dbgLabel : "<none>");
 }
 void MenuManager::onMidiCC_CCW() {
-    // decrease cached CC, wrap at 0 -> 127; do NOT persist until button pressed
-    int next = (int)_activeCC - 1;
+    // decrease selected CC, wrap at 0 -> 127; do NOT persist until button pressed
+    int next = (int)_selectedCC - 1;
     if (next < 0) next += 128;
-    _activeCC = (uint8_t)next;
+    _selectedCC = (uint8_t)next;
     _ccSaved = false;
     renderMidiCCMenu();
-    // Debug: print CC and resolved label
-    const char* dbgLabel2 = resolveCCLabel(_activeCC);
-    Serial.print("CC turn CCW -> "); Serial.print(_activeCC); Serial.print(" : "); Serial.println(dbgLabel2 ? dbgLabel2 : "<none>");
+    // Debug: print selected CC and resolved label
+    const char* dbgLabel2 = resolveCCLabel(_selectedCC);
+    Serial.print("CC turn CCW -> "); Serial.print(_selectedCC); Serial.print(" : "); Serial.println(dbgLabel2 ? dbgLabel2 : "<none>");
 }
 void MenuManager::onMidiCC_Btn() {
-    // Commit/save current CC to EEPROM and show saved badge
+    // Commit/save current selected CC to EEPROM and show saved badge
+    _activeCC = _selectedCC;
     eeprom_saveCC(_activeCC);
     _ccSaved = true;
     renderMidiCCMenu();

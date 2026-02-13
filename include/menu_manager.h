@@ -138,6 +138,8 @@ private:
     int _instrumentTopIdx; // top visible index for scrolling
     // Cached MIDI CC number (0..127) to avoid reading EEPROM frequently
     uint8_t _activeCC;
+    // Selected CC shown in the CC menu; only committed to _activeCC on Btn
+    uint8_t _selectedCC;
     // Flag set when CC value was saved by encoder button (controls saved badge)
     bool _ccSaved;
     // Pedal calibration values (raw ADC range)
